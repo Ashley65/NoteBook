@@ -51,9 +51,11 @@ private:
     NavigationBar* m_navigationBar {nullptr};
     InfoBar* m_infoBar {nullptr};
     MenuButtonBar* m_menuButtonBar {nullptr};
+    QPushButton* m_floatingToggleButton  {nullptr};
     void setupWindowActionsBar();
     void setupInfoBar();
     void setupNavigationBar();
+    void updateFloatingToggleButtonVisibility();
 
     void setupSideBar();
 

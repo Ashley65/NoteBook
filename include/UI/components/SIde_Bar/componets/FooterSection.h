@@ -28,6 +28,8 @@ public:
     signals:
         // Signal to tell the parent (SideBar) to switch modes
         void modeCycleRequested();
+        // An Signal to inform sync status changes (not implemented here)
+        // void syncStatusChanged(const QString& status);
 
 protected:
     void changeEvent(QEvent *event) override;

@@ -191,6 +191,31 @@ MainWindow::MainWindow(QWidget* parent)
     // CSS: grid-area: 2 / 2 / 4 / 6; (Row 1, Col 1, Span 2, Span 4)
     QFrame* content = createWidget("content", "#ecf0f1", "color: #333;", true, false);
     mainLayout->addWidget(content, 1, 1, 2, 2);
+    content->installEventFilter(this); // Watch for resize events on content
+    // Adding the floating toggle button for sidebar linked to content area
+    m_floatingToggleButton = new QPushButton(content);
+    m_floatingToggleButton->setText("☰");
+    m_floatingToggleButton->setToolTip("Show Sidebar");
+    m_floatingToggleButton->setFixedSize(36, 36);
+    m_floatingToggleButton->setStyleSheet(R"(
+        QPushButton {
+            background-color: #2A2D3D;
+            border: none;
+            border-radius: 18px;
+            color: white;
+            font-size: 18px;
+        }
+        QPushButton:hover {
+            background-color: #3A3D4D;
+        }
+    )");
+    connect(m_floatingToggleButton, &QPushButton::clicked, this, [this]() {
+        if (m_sideBar) {
+            m_sideBar->setMode(SideBar::Mode::Default);
+            updateFloatingToggleButtonVisibility();
+        }
+    });
+    m_floatingToggleButton->hide();
 
 }
 
@@ -291,6 +316,30 @@ void MainWindow::setupNavigationBar()
     // The idea is to allow for the navigation bar to control navigation within the content window
 }
 
+void MainWindow::updateFloatingToggleButtonVisibility()
+{
+
+    if (!m_sideBar || !m_floatingToggleButton) return;
+
+    // Check if the sidebar is in Hidden mode
+    bool isHidden = (m_sideBar->mode() == SideBar::Mode::Hidden);
+
+    // Explicitly set visibility
+    m_floatingToggleButton->setVisible(isHidden);
+
+    if (isHidden) {
+        QWidget* parent = m_floatingToggleButton->parentWidget();
+        if (parent) {
+            int margin = 15;
+            int x = margin;
+            int y = parent->height() - m_floatingToggleButton->height() - margin;
+
+            m_floatingToggleButton->move(x, y);
+            m_floatingToggleButton->raise(); // Critical: Ensure it's on top of content
+        }
+    }
+}
+
 void MainWindow::setupSideBar() {
     if (!sideBarFrame) return;
 
@@ -325,6 +374,8 @@ void MainWindow::setupSideBar() {
             grid->setColumnStretch(2, 10);
         }
     }
+
+    updateFloatingToggleButtonVisibility();
 }
 void MainWindow::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
@@ -349,7 +400,9 @@ void MainWindow::resizeEvent(QResizeEvent* e) {
                 grid->setColumnStretch(2, 10);
             }
         }
+        updateFloatingToggleButtonVisibility();
     }
+
 }
 void MainWindow::updateWindowTheme()
 
@@ -502,6 +555,13 @@ void MainWindow::rememberNormalGeometry()
 
 bool MainWindow::eventFilter(QObject* obj, QEvent* event)
 {
+    // Check if the event is a resize event on the content widget
+    if (m_floatingToggleButton && obj == m_floatingToggleButton->parentWidget()) {
+        if (event->type() == QEvent::Resize) {
+            updateFloatingToggleButtonVisibility();
+        }
+    }
+
     if (obj == topBarFrame)
     {
         if (event->type() == QEvent::MouseButtonPress)
@@ -543,6 +603,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
     }
     return QWidget::eventFilter(obj, event);
 }
+
 
 void MainWindow::mousePressEvent(QMouseEvent* e)
 {
