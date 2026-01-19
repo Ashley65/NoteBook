@@ -2,7 +2,7 @@
 // Created by DevAccount on 02/12/2025.
 //
 
-#include "UI/components/Top_Menubar/infoBar.h"
+#include "UI/components/Top_Menubar/InfoBar.h"
 #include <QLabel>
 #include <QHBoxLayout>
 #include <QMouseEvent>

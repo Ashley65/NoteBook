@@ -59,7 +59,11 @@ ProjectsSection::ProjectsSection(QWidget *parent) : QWidget(parent)
     root->setText(0, "Projects");
     root->setFlags(Qt::ItemIsEnabled); // Disable selection for header
     root->setExpanded(true);
+#ifdef Q_OS_WIN
     root->setFont(0, QFont("Segoe UI", 9, QFont::Bold)); // Make header distinct
+#else
+    root->setFont(0, QFont(".AppleSystemUIFont", 9, QFont::Bold)); // Make header distinct
+#endif
 
     // Add Items
     addProject(root, "System Design", 2);

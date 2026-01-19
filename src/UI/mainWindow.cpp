@@ -12,6 +12,8 @@
 #include <UI/mainWIndow.h>
 #include <UI/components/SIde_Bar/sideBar.h>
 
+#include "UI/components/SIde_Bar/componets/PrimaryActionSection.h"
+
 #ifdef _WIN32
 #include <windows.h>
 #include <windowsx.h>
@@ -115,12 +117,12 @@ MainWindow::MainWindow(QWidget* parent)
     topLayout->setRowStretch(2, 4);
 
 
-    // --- Application_info ---
     // Spans Row 0, Cols 0-1
     auto* infoBar = new InfoBar(topBarFrame);
     infoBar->setAppName("ChronoTasks");
     infoBar->setCurrentScreenLabel("TEST Home");
 
+#ifdef Q_OS_WIN
     // Let double-click on the InfoBar behave like a title bar toggle
     connect(infoBar, &InfoBar::maximiseRestoreRequested, this, [this]() {
         if (isMaximized()) {
@@ -135,6 +137,7 @@ MainWindow::MainWindow(QWidget* parent)
             if (m_windowActionsBar) m_windowActionsBar->setMaximised(true);
         }
     });
+#endif
 
     auto* infoContainer = new QFrame(topBarFrame);
     auto* infoLay = new QGridLayout(infoContainer);
@@ -270,6 +273,7 @@ QFrame* MainWindow::createWidget(const QString& title, const QString& color,
 
 void MainWindow::setupWindowActionsBar()
 {
+#ifdef Q_OS_WIN
     m_windowActionsBar = new WindowsActionsBar(this);
     m_windowActionsBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     m_windowActionsBar->setMaximumWidth(220); // keep the bar compact
@@ -300,8 +304,7 @@ void MainWindow::setupWindowActionsBar()
     connect(m_windowActionsBar, &WindowsActionsBar::closeRequested, this, [this]() {
         this->close();
     });
-
-
+#endif
 }
 
 void MainWindow::setupInfoBar()
@@ -374,6 +377,15 @@ void MainWindow::setupSideBar() {
             grid->setColumnStretch(2, 10);
         }
     }
+    connect(m_sideBar->primary(), &PrimaryActionSection::triggered, this, [this]() {
+            // Add logic to show the personal workspace
+            // example: m_stakedW // Update the InfoBar to reflect the current screen
+                if (m_infoBar) {
+                    m_infoBar->setCurrentScreenLabel("Personal Workspace");
+                }
+                qDebug() << "Switching to Personal Workspace view";
+
+    } );
 
     updateFloatingToggleButtonVisibility();
 }

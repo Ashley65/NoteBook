@@ -30,7 +30,11 @@ namespace IconHelper {
         // 2. Draw Initials
         painter.setPen(fg);
         // Scale font slightly based on size (approx 40% of icon size)
+#ifdef Q_OS_WIN
         painter.setFont(QFont("Segoe UI", size * 0.5, QFont::Bold));
+#else
+        painter.setFont(QFont(".AppleSystemUIFont", size * 0.5, QFont::Bold));
+#endif
         painter.drawText(pixmap.rect(), Qt::AlignCenter, text);
 
         return QIcon(pixmap);

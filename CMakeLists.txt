@@ -6,7 +6,10 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-set(CMAKE_PREFIX_PATH "C:/Qt/6.10.0/msvc2022_64")
+if (WIN32)
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.10.0/msvc2022_64")
+endif ()
+
 
 find_package(Qt6 COMPONENTS
         Core
@@ -68,6 +71,16 @@ target_include_directories(taskHelper PRIVATE
 if (WIN32)
     target_link_libraries(taskHelper PRIVATE Dwmapi)
     target_compile_definitions(taskHelper PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
+endif()
+
+if (APPLE)
+    set_target_properties(taskHelper PROPERTIES
+            MACOSX_BUNDLE TRUE
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.chronotasks.taskhelper"
+            MACOSX_BUNDLE_BUNDLE_NAME "ChronoTasks"
+            MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+            MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
+    )
 endif()
 
 if (WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)

@@ -7,6 +7,7 @@
 
 #include <QWidget>
 #include <QPushButton>
+#include <QToolButton>
 
 class PrimaryActionSection : public QWidget
 {
@@ -16,13 +17,17 @@ public:
 
     signals:
         void triggered();
+        void workspaceChanged(const QString &name);
 
 protected:
     // Listen for the "compact" property change from SideBar.cpp
     void changeEvent(QEvent *event) override;
+private slots:
+    void onMenuActionTriggered(QAction *action);
 
 private:
     QToolButton* mainBtn;
+    QString currentWorkspace_ = "Personal Workspace";
     void updateStyle(bool compact);
 };
 

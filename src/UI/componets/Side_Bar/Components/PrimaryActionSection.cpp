@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 #include <QEvent>
 #include <QToolButton>
+#include <QMenu>
 #include <QDynamicPropertyChangeEvent>
 
 PrimaryActionSection::PrimaryActionSection(QWidget *parent) : QWidget(parent)
@@ -29,6 +30,41 @@ PrimaryActionSection::PrimaryActionSection(QWidget *parent) : QWidget(parent)
     updateStyle(false);
 
     connect(mainBtn, &QToolButton::clicked, this, &PrimaryActionSection::triggered); // Changed from QPushButton
+
+
+    mainBtn->setPopupMode(QToolButton::InstantPopup);
+
+    // Create the dropdown menu
+    QMenu* workspaceMenu = new QMenu(mainBtn);
+    workspaceMenu->addAction("Workspace Settings");
+    workspaceMenu->addAction("Switch Workspace");
+    workspaceMenu->addSeparator();
+    workspaceMenu->addAction("Add New Workspace");
+
+    workspaceMenu->setStyleSheet(R"(
+        /* Remove default margin/padding */
+        QMenu {
+            background-color: #2B3038;
+            border: 1px solid #444C58;
+        }
+        /* Style each action */
+        QMenu::item {
+            padding: 6px 12px;
+            color: #D0D5DD;
+            font-size: 13px;
+        }
+        /* Highlight on hover */
+        QMenu::item:selected {
+            background-color: #3C4655;
+            color: #FFFFFF;
+        }
+        /* Optional: give a subtle icon to actions */
+        QMenu::item:selected:has-children {
+            background-color: #3C4655;
+        }
+    )");
+
+    mainBtn->setMenu(workspaceMenu);
 }
 
 void PrimaryActionSection::changeEvent(QEvent *event)
@@ -41,6 +77,10 @@ void PrimaryActionSection::changeEvent(QEvent *event)
         }
     }
     QWidget::changeEvent(event);
+}
+
+void PrimaryActionSection::onMenuActionTriggered(QAction *action) {
+
 }
 
 void PrimaryActionSection::updateStyle(bool compact)
@@ -88,4 +128,7 @@ void PrimaryActionSection::updateStyle(bool compact)
             }
         )");
     }
+    // TOD
+
+
 }

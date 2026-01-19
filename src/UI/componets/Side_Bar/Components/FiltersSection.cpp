@@ -63,7 +63,11 @@ FiltersSection::FiltersSection(QWidget *parent) : BaseNavTree(parent)
     // Make the header non-selectable so the "Glow" doesn't apply to it
     root->setFlags(Qt::ItemIsEnabled);
     root->setExpanded(true);
+#ifdef Q_OS_WIN
     root->setFont(0, QFont("Segoe UI", 9, QFont::Bold));
+#else
+    root->setFont(0, QFont(".AppleSystemUIFont", 9, QFont::Bold));
+#endif
 
     // --- Add Filter Items ---
     // You can use IDs (1, 2, 3...) to identify them in your main logic
@@ -150,8 +154,8 @@ void FiltersSection::setCompact(bool compact) {
             // Example restoration:
             if (fullName.contains("Priority")) item->setIcon(0, QIcon(":/icons/flag.svg"));
             else if (fullName.contains("Overdue")) item->setIcon(0, QIcon(":/icons/alert.svg"));
-            else if (fullName.contains("Completed")) item->setIcon(0, QIcon(":/icons/check_circle.svg"));
-            else if (fullName.contains("No Due")) item->setIcon(0, QIcon(":/icons/calendar_off.svg"));
+            else if (fullName.contains("Completed")) item->setIcon(0, QIcon(":/icons/check.svg"));
+            else if (fullName.contains("No Due")) item->setIcon(0, QIcon(":/icons/calendar.svg"));
             else item->setIcon(0, QIcon(":/icons/filter.svg"));
         }
     }
@@ -172,13 +176,13 @@ void FiltersSection::addFilter(QTreeWidgetItem* parent, const QString& name, int
     if (name.contains("Priority", Qt::CaseInsensitive))
         item->setIcon(0, QIcon(":/icons/flag.svg"));
     else if (name.contains("Overdue", Qt::CaseInsensitive))
-        item->setIcon(0, QIcon(":/icons/warning.svg"));
+        item->setIcon(0, QIcon(":/icons/alert.svg"));
     else if (name.contains("Completed", Qt::CaseInsensitive))
-        item->setIcon(0, QIcon(":/icons/check_circle.svg"));
+        item->setIcon(0, QIcon(":/icons/check.svg"));
     else if (name.contains("No Due", Qt::CaseInsensitive))
-        item->setIcon(0, QIcon(":/icons/calendar_off.svg"));
+        item->setIcon(0, QIcon(":/icons/calendar.svg"));
     else
-        item->setIcon(0, QIcon(":/icons/filter_list.svg")); // Fallback
+        item->setIcon(0, QIcon(":/icons/filter.svg")); // Fallback
 
     item->setSizeHint(0, QSize(0, 32));
 }
