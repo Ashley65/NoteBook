@@ -33,7 +33,7 @@ private slots:
 
 private:
     QToolButton* mainBtn;
-    QString currentWorkspace_;
+    QString currentWorkspace_ = "TEST workspace";
     QString currentWorkspaceID_;
     QString currentWorkspaceName_;
     void updateStyle(bool compact);
