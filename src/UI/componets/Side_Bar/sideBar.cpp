@@ -38,7 +38,7 @@ SideBar::SideBar(QWidget* parent)
     root->setSpacing(10);
 
     // 1. Primary Action (Personal Workspace) - moved to top per image
-    m_primary = new PrimaryActionSection(this);
+    m_primary = new WorkspaceContextSection(this);
     root->addWidget(m_primary);
 
     // 2. Core Navigation (Inbox, Today...)

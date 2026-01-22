@@ -9,25 +9,33 @@
 #include <QPushButton>
 #include <QToolButton>
 
-class PrimaryActionSection : public QWidget
+class WorkspaceContextSection : public QWidget
 {
     Q_OBJECT
 public:
-    explicit PrimaryActionSection(QWidget *parent = nullptr);
-
-    signals:
-        void triggered();
-        void workspaceChanged(const QString &name);
+    explicit WorkspaceContextSection(QWidget *parent = nullptr);
 
 protected:
     // Listen for the "compact" property change from SideBar.cpp
     void changeEvent(QEvent *event) override;
+
+signals:
+    void workspaceChanged(const QString& workspaceId);
+    void requestWorkspaceSwitch();
+    void requestWorkspaceCreate();
+    void triggered();
+    void requestWorkspaceSettings(const QString& workspaceId);
+
+
+
 private slots:
     void onMenuActionTriggered(QAction *action);
 
 private:
     QToolButton* mainBtn;
-    QString currentWorkspace_ = "Personal Workspace";
+    QString currentWorkspace_;
+    QString currentWorkspaceID_;
+    QString currentWorkspaceName_;
     void updateStyle(bool compact);
 };
 

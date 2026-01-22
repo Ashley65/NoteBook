@@ -11,7 +11,7 @@
 #include <QTreeWidget>
 #include <QLabel>
 
-class PrimaryActionSection;
+class WorkspaceContextSection;
 class CoreNavigationSection;
 class ProjectsSection;
 class FiltersSection;
@@ -37,7 +37,7 @@ public:
 
     // Accessors for wiring signals in MainWindow
     CoreNavigationSection* coreNav() const { return m_core; }
-    PrimaryActionSection* primary() const { return m_primary; }
+    WorkspaceContextSection* primary() const { return m_primary; }
     ProjectsSection* projects() const { return m_projects; }
     FiltersSection* filters() const { return m_filters; }
     FooterSection* footer() const { return m_footer; }
@@ -56,7 +56,7 @@ private:
     Mode m_mode { Mode::Default };
 
     CoreNavigationSection* m_core { nullptr };
-    PrimaryActionSection* m_primary { nullptr };
+    WorkspaceContextSection* m_primary { nullptr };
     ProjectsSection* m_projects { nullptr };
     FiltersSection* m_filters { nullptr };
     FooterSection* m_footer { nullptr };

@@ -7,16 +7,21 @@
 
 #pragma once
 #include <QWidget>
-#include <QGridLayout>
+#include <QHBoxLayout>
 
 
 class QPushButton;
-class QHBoxLayout;
 class QMouseEvent;
 
 class WindowsActionsBar : public QWidget
 {
     Q_OBJECT
+
+public:
+    enum class Style {
+        Windows,
+        MacOS
+    };
 
 signals:
     void minimiseRequested();
@@ -24,8 +29,15 @@ signals:
     void closeRequested();
 
 public:
-    explicit WindowsActionsBar(QWidget *parent = nullptr);
+    explicit WindowsActionsBar(QWidget *parent = nullptr, Style style =
+#ifdef Q_OS_MAC
+        Style::MacOS
+#else
+        Style::Windows
+#endif
+    );
     void setButtonStyleSheet(const QString &css);
+    void setStyle(Style style);
 
 
 protected:
@@ -43,6 +55,7 @@ private:
     QPushButton* m_maximiseBtn{nullptr};
     QPushButton* m_closeBtn{nullptr};
     bool m_isMaximised{false};
+    Style m_style;
 
 
 };

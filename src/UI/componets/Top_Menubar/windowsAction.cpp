@@ -6,11 +6,25 @@
 #include <QEvent>
 
 
-WindowsActionsBar::WindowsActionsBar(QWidget* parent)
-    : QWidget(parent)
+WindowsActionsBar::WindowsActionsBar(QWidget* parent, Style style)
+    : QWidget(parent), m_style(style)
 {
     initUi();
     connectSignals();
+}
+
+void WindowsActionsBar::setStyle(Style style)
+{
+    if (m_style == style) return;
+    m_style = style;
+    
+    // Clear layout and re-init
+    QLayoutItem* item;
+    while ((item = m_layout->takeAt(0)) != nullptr) {
+        delete item->widget();
+        delete item;
+    }
+    initUi();
 }
 
 void WindowsActionsBar::setButtonStyleSheet(const QString& css)
@@ -25,63 +39,100 @@ void WindowsActionsBar::setButtonStyleSheet(const QString& css)
 void WindowsActionsBar::initUi()
 {
     // Layout
-    m_layout = new QHBoxLayout(this);
+    if (!m_layout) {
+        m_layout = new QHBoxLayout(this);
+    }
     m_layout->setContentsMargins(0, 0, 0, 0);
-    m_layout->setSpacing(0);
+    m_layout->setSpacing(m_style == Style::MacOS ? 8 : 0);
 
     // Buttons
     m_minimiseBtn = new QPushButton(this);
     m_minimiseBtn->setObjectName("winActionMinimise");
-    m_minimiseBtn->setText("-");
     m_minimiseBtn->setFlat(true);
-    m_minimiseBtn->setToolTip("Minimise");
 
     m_maximiseBtn = new QPushButton(this);
     m_maximiseBtn->setObjectName("winActionMaximise");
-    m_maximiseBtn->setText("□");
     m_maximiseBtn->setFlat(true);
-    m_maximiseBtn->setToolTip("Maximise");
 
     m_closeBtn = new QPushButton(this);
     m_closeBtn->setObjectName("winActionClose");
-    m_closeBtn->setText("×");
     m_closeBtn->setFlat(true);
-    m_closeBtn->setToolTip("Close");
 
-    // Add to the layout (typical order: minimise, maximise, close)
-    m_layout->addWidget(m_minimiseBtn);
-    m_layout->addWidget(m_maximiseBtn);
-    m_layout->addWidget(m_closeBtn);
+    if (m_style == Style::MacOS) {
+        // macOS order: close, minimise, maximise
+        m_layout->addWidget(m_closeBtn);
+        m_layout->addWidget(m_minimiseBtn);
+        m_layout->addWidget(m_maximiseBtn);
 
-    QFont smallFont = font();
-    smallFont.setPointSizeF(15.0);
-    m_minimiseBtn->setFont(smallFont);
-    m_maximiseBtn->setFont(smallFont);
-    m_closeBtn->setFont(smallFont);
+        m_closeBtn->setToolTip("Close");
+        m_minimiseBtn->setToolTip("Minimise");
+        m_maximiseBtn->setToolTip("Maximise");
 
-    QString compactCss =
-    "QPushButton{"
-    "  padding: 0 6px;"
-    "  min-width: 0;"
-    "  min-height: 0;"
-    "  border: none;"
-    "}"
-    "QPushButton:hover {"
-   "    background: #a8c0ff;"
-   "}";
+        const QString baseStyle =
+            "QPushButton {"
+            "  border-radius: 6px;"
+            "  border: none;"
+            "  width: 12px;"
+            "  height: 12px;"
+            "  min-width: 12px;"
+            "  min-height: 12px;"
+            "}"
+            "QPushButton:hover { opacity: 0.8; }";
 
-    m_minimiseBtn->setStyleSheet(compactCss);
-    m_maximiseBtn->setStyleSheet(compactCss);
-    m_closeBtn->setStyleSheet(compactCss   + "QPushButton:hover { background: #ff4444; color: white; }");
+        m_closeBtn->setStyleSheet(baseStyle + "QPushButton { background-color: #ff5f56; border: 1px solid #e0443e; }");
+        m_minimiseBtn->setStyleSheet(baseStyle + "QPushButton { background-color: #ffbd2e; border: 1px solid #dea123; }");
+        m_maximiseBtn->setStyleSheet(baseStyle + "QPushButton { background-color: #27c93f; border: 1px solid #1aab29; }");
 
-    const int btnW = 25;
-    const int btnH = 20;
-    m_minimiseBtn->setFixedSize(btnW, btnH);
-    m_maximiseBtn->setFixedSize(btnW, btnH);
-    m_closeBtn->setFixedSize(btnW, btnH);
+        const int btnSize = 12;
+        m_closeBtn->setFixedSize(btnSize, btnSize);
+        m_minimiseBtn->setFixedSize(btnSize, btnSize);
+        m_maximiseBtn->setFixedSize(btnSize, btnSize);
 
-    setFixedHeight(btnH);
-    // Remove this line: setMaximumWidth(btnW * 3);
+        setFixedHeight(btnSize + 8);
+    } else {
+        // Windows order: minimise, maximise, close
+        m_minimiseBtn->setText("-");
+        m_minimiseBtn->setToolTip("Minimise");
+
+        m_maximiseBtn->setText(m_isMaximised ? "❐" : "□");
+        m_maximiseBtn->setToolTip(m_isMaximised ? "Restore" : "Maximise");
+
+        m_closeBtn->setText("×");
+        m_closeBtn->setToolTip("Close");
+
+        m_layout->addWidget(m_minimiseBtn);
+        m_layout->addWidget(m_maximiseBtn);
+        m_layout->addWidget(m_closeBtn);
+
+        QFont smallFont = font();
+        smallFont.setPointSizeF(15.0);
+        m_minimiseBtn->setFont(smallFont);
+        m_maximiseBtn->setFont(smallFont);
+        m_closeBtn->setFont(smallFont);
+
+        QString compactCss =
+        "QPushButton{"
+        "  padding: 0 6px;"
+        "  min-width: 0;"
+        "  min-height: 0;"
+        "  border: none;"
+        "}"
+        "QPushButton:hover {"
+        "    background: #a8c0ff;"
+        "}";
+
+        m_minimiseBtn->setStyleSheet(compactCss);
+        m_maximiseBtn->setStyleSheet(compactCss);
+        m_closeBtn->setStyleSheet(compactCss + "QPushButton:hover { background: #ff4444; color: white; }");
+
+        const int btnW = 25;
+        const int btnH = 20;
+        m_minimiseBtn->setFixedSize(btnW, btnH);
+        m_maximiseBtn->setFixedSize(btnW, btnH);
+        m_closeBtn->setFixedSize(btnW, btnH);
+
+        setFixedHeight(btnH);
+    }
 }
 
 
@@ -107,14 +158,16 @@ void WindowsActionsBar::setMaximised(bool maximised)
         return;
 
     m_isMaximised = maximised;
-    if (m_isMaximised) {
-        // When maximised, show a RESTORE glyph and tooltip
-        m_maximiseBtn->setText("❐");
-        m_maximiseBtn->setToolTip("Restore");
-    } else {
-        // When normal, show a MAXIMISE glyph and tooltip
-        m_maximiseBtn->setText("□");
-        m_maximiseBtn->setToolTip("Maximise");
+    if (m_style == Style::Windows) {
+        if (m_isMaximised) {
+            // When maximised, show a RESTORE glyph and tooltip
+            m_maximiseBtn->setText("❐");
+            m_maximiseBtn->setToolTip("Restore");
+        } else {
+            // When normal, show a MAXIMISE glyph and tooltip
+            m_maximiseBtn->setText("□");
+            m_maximiseBtn->setToolTip("Maximise");
+        }
     }
 }
 

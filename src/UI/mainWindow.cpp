@@ -137,6 +137,17 @@ MainWindow::MainWindow(QWidget* parent)
             if (m_windowActionsBar) m_windowActionsBar->setMaximised(true);
         }
     });
+#else
+    // On macOS/others, still allow double-click if it's implemented in InfoBar
+    connect(infoBar, &InfoBar::maximiseRestoreRequested, this, [this]() {
+        if (isMaximized() || isFullScreen()) {
+            showNormal();
+            if (m_windowActionsBar) m_windowActionsBar->setMaximised(false);
+        } else {
+            showFullScreen();
+            if (m_windowActionsBar) m_windowActionsBar->setMaximised(true);
+        }
+    });
 #endif
 
     auto* infoContainer = new QFrame(topBarFrame);
@@ -145,8 +156,6 @@ MainWindow::MainWindow(QWidget* parent)
     infoLay->setSpacing(0);
     infoLay->addWidget(infoBar, 0, 0);
 
-    topLayout->addWidget(infoContainer, 0, 0, 1, 1);
-    // --- Menu_action_bar ---
     // Spans Row 2, Cols 0-2
     m_navigationBar = new NavigationBar(topBarFrame);
     topLayout->addWidget(m_navigationBar, 2, 0, 1, 2);
@@ -164,7 +173,22 @@ MainWindow::MainWindow(QWidget* parent)
         m_windowActionsBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
         m_windowActionsBar->setMaximumWidth(220); // tweak as needed for your buttons
     }
+#ifdef Q_OS_MAC
+    // Place window actions to the left of infoContainer (standard macOS layout)
+    topLayout->addWidget(m_windowActionsBar, 0, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
+    
+    // Place infoContainer after the window actions
+    topLayout->addWidget(infoContainer, 0, 1, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
+    infoContainer->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    
+    // Adjust column stretches to keep them on the left
+    topLayout->setColumnStretch(0, 0); 
+    topLayout->setColumnStretch(1, 0);
+    topLayout->setColumnStretch(2, 1); // allow the rest to expand
+#else
+    topLayout->addWidget(infoContainer, 0, 0, 1, 1);
     topLayout->addWidget(m_windowActionsBar, 0, 2, 2, 1, Qt::AlignRight | Qt::AlignTop);
+#endif
 
     // -- Menu_dropdown_bar ---
     auto* menuBar = new MenuButtonBar(topBarFrame);
@@ -273,7 +297,6 @@ QFrame* MainWindow::createWidget(const QString& title, const QString& color,
 
 void MainWindow::setupWindowActionsBar()
 {
-#ifdef Q_OS_WIN
     m_windowActionsBar = new WindowsActionsBar(this);
     m_windowActionsBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     m_windowActionsBar->setMaximumWidth(220); // keep the bar compact
@@ -284,18 +307,24 @@ void MainWindow::setupWindowActionsBar()
     });
 
     connect(m_windowActionsBar, &WindowsActionsBar::maximiseRestoreRequested, this, [this]() {
-    if (isMaximized()) {
+    if (isMaximized() || isFullScreen()) {
         // Restore
         showNormal();
+#ifdef Q_OS_WIN
         if (haveNormalGeometry) {
             // Defer setting the geometry until after the normal state is applied
             QTimer::singleShot(0, this, [this]{ setGeometry(lastNormalGeometry); });
         }
+#endif
         m_windowActionsBar->setMaximised(false);
     } else {
         // Save current normal geometry before maximizing
+#ifdef Q_OS_WIN
         rememberNormalGeometry();
         showMaximized();
+#else
+        showFullScreen();
+#endif
         m_windowActionsBar->setMaximised(true);
     }
 });
@@ -304,7 +333,6 @@ void MainWindow::setupWindowActionsBar()
     connect(m_windowActionsBar, &WindowsActionsBar::closeRequested, this, [this]() {
         this->close();
     });
-#endif
 }
 
 void MainWindow::setupInfoBar()
@@ -377,7 +405,7 @@ void MainWindow::setupSideBar() {
             grid->setColumnStretch(2, 10);
         }
     }
-    connect(m_sideBar->primary(), &PrimaryActionSection::triggered, this, [this]() {
+    connect(m_sideBar->primary(), &WorkspaceContextSection::triggered, this, [this]() {
             // Add logic to show the personal workspace
             // example: m_stakedW // Update the InfoBar to reflect the current screen
                 if (m_infoBar) {
@@ -719,9 +747,14 @@ void MainWindow::changeEvent(QEvent* e)
     if (e->type() == QEvent::WindowStateChange)
     {
         const bool maximised = isMaximized();
-        if (m_windowActionsBar)
-            m_windowActionsBar->setMaximised(maximised);
-        if (!maximised)
+        const bool fullScreen = isFullScreen();
+
+        if (m_windowActionsBar) {
+            m_windowActionsBar->setMaximised(maximised || fullScreen);
+            m_windowActionsBar->setVisible(!fullScreen);
+        }
+
+        if (!maximised && !fullScreen)
             rememberNormalGeometry();
     }
     else if (e->type() == QEvent::ApplicationPaletteChange ||

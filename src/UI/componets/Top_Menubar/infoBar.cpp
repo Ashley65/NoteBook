@@ -39,14 +39,13 @@ void InfoBar::initUi()
     m_layout->addWidget(m_appNameLabel);
     m_layout->addWidget(separator);
     m_layout->addWidget(m_currentScreenLabel);
-    m_layout->addStretch();
 
     // Set spacing and margins
     m_layout->setSpacing(8);
     m_layout->setContentsMargins(10, 5, 10, 5);
 
     // Style the info bar
-    setStyleSheet("InfoBar { background-color: #3c4043; color: white; }");
+    setStyleSheet("InfoBar { background-color: transparent; color: white; border: none; }");
 
     // Set a fixed or minimum height
     setMinimumHeight(35);

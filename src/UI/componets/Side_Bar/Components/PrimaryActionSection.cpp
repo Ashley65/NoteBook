@@ -9,7 +9,7 @@
 #include <QMenu>
 #include <QDynamicPropertyChangeEvent>
 
-PrimaryActionSection::PrimaryActionSection(QWidget *parent) : QWidget(parent)
+WorkspaceContextSection::WorkspaceContextSection(QWidget *parent) : QWidget(parent)
 {
     auto* layout = new QVBoxLayout(this);
     // Margins: Top/Bottom 10px, Left/Right 5px
@@ -29,17 +29,31 @@ PrimaryActionSection::PrimaryActionSection(QWidget *parent) : QWidget(parent)
     // Initial State: Default (Not Compact)
     updateStyle(false);
 
-    connect(mainBtn, &QToolButton::clicked, this, &PrimaryActionSection::triggered); // Changed from QPushButton
+    connect(mainBtn, &QToolButton::clicked, this, &WorkspaceContextSection::triggered); // Changed from QPushButton
 
 
     mainBtn->setPopupMode(QToolButton::InstantPopup);
 
     // Create the dropdown menu
     QMenu* workspaceMenu = new QMenu(mainBtn);
-    workspaceMenu->addAction("Workspace Settings");
-    workspaceMenu->addAction("Switch Workspace");
+    auto* header = new QAction("Workspace: Personal", workspaceMenu);
+    header->setEnabled(false);
+
+    auto* switchAction   = new QAction("Switch Workspace…", workspaceMenu);
+    auto* settingsAction = new QAction("Workspace Settings…", workspaceMenu);
+    auto* addAction      = new QAction("+ Add New Workspace", workspaceMenu);
+
+    workspaceMenu->addAction(header);
     workspaceMenu->addSeparator();
-    workspaceMenu->addAction("Add New Workspace");
+    workspaceMenu->addAction(switchAction);
+    workspaceMenu->addAction(settingsAction);
+    workspaceMenu->addSeparator();
+    workspaceMenu->addAction(addAction);
+
+    switchAction->setData("Switch");
+    settingsAction->setData("workspaceSettings");
+    addAction->setData("addWorkspace");
+
 
     workspaceMenu->setStyleSheet(R"(
         /* Remove default margin/padding */
@@ -65,9 +79,12 @@ PrimaryActionSection::PrimaryActionSection(QWidget *parent) : QWidget(parent)
     )");
 
     mainBtn->setMenu(workspaceMenu);
+
+    connect(workspaceMenu, &QMenu::triggered, this, &WorkspaceContextSection::onMenuActionTriggered);
+    connect(mainBtn, &QToolButton::clicked, this, &WorkspaceContextSection::triggered);
 }
 
-void PrimaryActionSection::changeEvent(QEvent *event)
+void WorkspaceContextSection::changeEvent(QEvent *event)
 {
     if (event->type() == QEvent::DynamicPropertyChange) {
         auto* propEvent = dynamic_cast<QDynamicPropertyChangeEvent*>(event);
@@ -79,11 +96,20 @@ void PrimaryActionSection::changeEvent(QEvent *event)
     QWidget::changeEvent(event);
 }
 
-void PrimaryActionSection::onMenuActionTriggered(QAction *action) {
+void WorkspaceContextSection::onMenuActionTriggered(QAction *action) {
+    const QString cmd = action->data().toString();
+
+    if (cmd == "Switch") {
+        emit requestWorkspaceSwitch();
+    } else if (cmd == "workspaceSettings") {
+        emit requestWorkspaceSettings(currentWorkspaceID_);
+    } else if (cmd == "addWorkspace") {
+        emit requestWorkspaceCreate();
+    }
 
 }
 
-void PrimaryActionSection::updateStyle(bool compact)
+void WorkspaceContextSection::updateStyle(bool compact)
 {
     if (compact) {
         // --- COMPACT MODE ---
@@ -106,7 +132,7 @@ void PrimaryActionSection::updateStyle(bool compact)
         )");
     } else {
         // --- DEFAULT MODE ---
-        mainBtn->setText(" Personal Workspace ▼");
+        mainBtn->setText(" " + currentWorkspaceName_ + " ▼");
         mainBtn->setToolTip("");
         mainBtn->setToolButtonStyle(Qt::ToolButtonTextBesideIcon); // Reset to default
 
