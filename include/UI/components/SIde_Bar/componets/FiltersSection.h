@@ -24,7 +24,7 @@ protected:
     signals:
         void filterSelected(int filterId);
 private:
-    QLabel* headerLabel;
+    QLabel* headerLabel{};
     static auto addFilter(QTreeWidgetItem* parent, const QString& name, int id, int count = 0) -> void;
     QTreeWidget* treeList;
 

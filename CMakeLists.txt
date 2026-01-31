@@ -29,10 +29,15 @@ set (SOURCE_FILES
         src/UI/componets/Top_Menubar/MenuButtonBar.cpp
         src/UI/componets/Side_Bar/sideBar.cpp
         src/UI/componets/Side_Bar/Components/CoreNavigationSection.cpp
-        src/UI/componets/Side_Bar/Components/PrimaryActionSection.cpp
+        src/UI/componets/Side_Bar/Components/WorkspaceContextSection.cpp
         src/UI/componets/Side_Bar/Components/ProjectsSection.cpp
         src/UI/componets/Side_Bar/Components/FiltersSection.cpp
-        src/UI/componets/Side_Bar/Components/FooterSection.cpp)
+        src/UI/componets/Side_Bar/Components/FooterSection.cpp
+        src/UI/componets/Content_Windows/MainContentView.cpp
+        src/helpers/AppStateController.cpp
+        src/Data/workspace/WorkspaceRepository.cpp
+        src/UI/componets/Content_Windows/WorkspaceView.cpp
+        src/Data/workspace/WorkspaceSwitchDialog.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -50,9 +55,16 @@ set (HEADER_FILES
         include/UI/components/SIde_Bar/componets/FiltersSection.h
         include/UI/components/SIde_Bar/componets/ProjectsSection.h
         include/UI/components/SIde_Bar/componets/CoreNavigationSection.h
-        include/UI/components/SIde_Bar/componets/PrimaryActionSection.h
+        include/UI/components/SIde_Bar/componets/WorkspaceContextSection.h
         include/UI/components/SIde_Bar/componets/BaseNavTree.h
-        include/UI/helpers/IconHelper.h)
+        include/helpers/IconHelper.h
+        include/helpers/AppStateController.h
+        include/UI/components/Content_Windows/WorkspaceView.h
+        include/helpers/Workspace.h
+        include/Data/workspace/WorkspaceRepository.h
+        include/UI/components/Content_Windows/MainContentView.h
+        include/helpers/WorkspaceCommand.h
+        include/Data/workspace/WorkspaceSwitchDialog.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 

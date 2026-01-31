@@ -2,7 +2,7 @@
 // Created by DevAccount on 23/12/2025.
 //
 #include <UI/components/SIde_Bar/componets/ProjectsSection.h>
-#include <UI/helpers/IconHelper.h>
+#include <helpers/IconHelper.h>
 #include <QVBoxLayout>
 #include <QHeaderView>
 #include <QRandomGenerator>

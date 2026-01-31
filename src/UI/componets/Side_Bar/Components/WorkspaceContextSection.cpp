@@ -2,12 +2,15 @@
 // Created by DevAccount on 23/12/2025.
 //
 
-#include <UI/components/SIde_Bar/componets/PrimaryActionSection.h>
+#include <UI/components/SIde_Bar/componets/WorkspaceContextSection.h>
 #include <QVBoxLayout>
 #include <QEvent>
 #include <QToolButton>
 #include <QMenu>
 #include <QDynamicPropertyChangeEvent>
+
+#include "helpers/AppStateController.h"
+
 
 WorkspaceContextSection::WorkspaceContextSection(QWidget *parent) : QWidget(parent)
 {
@@ -29,19 +32,24 @@ WorkspaceContextSection::WorkspaceContextSection(QWidget *parent) : QWidget(pare
     // Initial State: Default (Not Compact)
     updateStyle(false);
 
-    connect(mainBtn, &QToolButton::clicked, this, &WorkspaceContextSection::triggered); // Changed from QPushButton
+
 
 
     mainBtn->setPopupMode(QToolButton::InstantPopup);
 
     // Create the dropdown menu
-    QMenu* workspaceMenu = new QMenu(mainBtn);
+    auto workspaceMenu = new QMenu(mainBtn);
     auto* header = new QAction("Workspace: Personal", workspaceMenu);
     header->setEnabled(false);
 
-    auto* switchAction   = new QAction("Switch Workspace…", workspaceMenu);
+    auto* switchAction = new QAction("Switch Workspace…", workspaceMenu);
+    switchAction->setData(QVariant::fromValue(WorkspaceCommand::Switch));
+
     auto* settingsAction = new QAction("Workspace Settings…", workspaceMenu);
-    auto* addAction      = new QAction("+ Add New Workspace", workspaceMenu);
+    settingsAction->setData(QVariant::fromValue(WorkspaceCommand::Settings));
+
+    auto* addAction = new QAction("+ Add New Workspace", workspaceMenu);
+    addAction->setData(QVariant::fromValue(WorkspaceCommand::Create));
 
     workspaceMenu->addAction(header);
     workspaceMenu->addSeparator();
@@ -50,9 +58,6 @@ WorkspaceContextSection::WorkspaceContextSection(QWidget *parent) : QWidget(pare
     workspaceMenu->addSeparator();
     workspaceMenu->addAction(addAction);
 
-    switchAction->setData("Switch");
-    settingsAction->setData("workspaceSettings");
-    addAction->setData("addWorkspace");
 
 
     workspaceMenu->setStyleSheet(R"(
@@ -81,7 +86,14 @@ WorkspaceContextSection::WorkspaceContextSection(QWidget *parent) : QWidget(pare
     mainBtn->setMenu(workspaceMenu);
 
     connect(workspaceMenu, &QMenu::triggered, this, &WorkspaceContextSection::onMenuActionTriggered);
-    connect(mainBtn, &QToolButton::clicked, this, &WorkspaceContextSection::triggered);
+}
+
+void WorkspaceContextSection::setActiveWorkspace(const Workspace& ws)
+{
+    currentWorkspaceID_   = ws.id;
+    currentWorkspaceName_ = ws.name;
+
+    updateStyle(property("compact").toBool());
 }
 
 void WorkspaceContextSection::changeEvent(QEvent *event)
@@ -96,17 +108,34 @@ void WorkspaceContextSection::changeEvent(QEvent *event)
     QWidget::changeEvent(event);
 }
 
-void WorkspaceContextSection::onMenuActionTriggered(QAction *action) {
-    const QString cmd = action->data().toString();
+void WorkspaceContextSection::onMenuActionTriggered(QAction* action)
+{
+    if (!action->data().canConvert<WorkspaceCommand>())
+        return;
 
-    if (cmd == "Switch") {
+    const auto cmd =
+        action->data().value<WorkspaceCommand>();
+
+    switch (cmd) {
+    case WorkspaceCommand::Switch:
         emit requestWorkspaceSwitch();
-    } else if (cmd == "workspaceSettings") {
+        break;
+    case WorkspaceCommand::Settings:
         emit requestWorkspaceSettings(currentWorkspaceID_);
-    } else if (cmd == "addWorkspace") {
+        break;
+    case WorkspaceCommand::Create:
         emit requestWorkspaceCreate();
+        break;
     }
+}
 
+
+void WorkspaceContextSection::setContext(const AppContext& ctx)
+{
+    currentWorkspaceID_   = ctx.activeWorkspaceId;
+    currentWorkspaceName_ = ctx.activeWorkspaceName;
+
+    updateStyle(property("compact").toBool());
 }
 
 void WorkspaceContextSection::updateStyle(bool compact)
@@ -114,7 +143,7 @@ void WorkspaceContextSection::updateStyle(bool compact)
     if (compact) {
         // --- COMPACT MODE ---
         mainBtn->setText(""); // Hide Text
-        mainBtn->setToolTip("Personal Workspace");
+        mainBtn->setToolTip(currentWorkspaceName_);
         mainBtn->setToolButtonStyle(Qt::ToolButtonIconOnly); // Centre the icon
 
         // Centre the icon, make it look like a square button

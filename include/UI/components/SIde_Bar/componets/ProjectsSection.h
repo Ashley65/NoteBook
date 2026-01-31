@@ -26,7 +26,7 @@ protected:
 
 private:
     QTreeWidget* treeList;
-    void addProject(QTreeWidgetItem* parent, const QString& name, int count = 0);
+    static void addProject(QTreeWidgetItem* parent, const QString& name, int count = 0);
 };
 
 

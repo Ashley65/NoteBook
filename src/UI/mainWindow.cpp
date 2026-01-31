@@ -11,8 +11,9 @@
 #include <QWidget>
 #include <UI/mainWIndow.h>
 #include <UI/components/SIde_Bar/sideBar.h>
+#include "Data/workspace/WorkspaceSwitchDialog.h"
 
-#include "UI/components/SIde_Bar/componets/PrimaryActionSection.h"
+#include "UI/components/SIde_Bar/componets/WorkspaceContextSection.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -64,6 +65,10 @@ MainWindow::MainWindow(QWidget* parent)
 
     setWindowTitle("ChronoTasks");
     resize(1000, 700);
+
+    m_workspaceRepo = new WorkspaceRepository(this);
+    m_stateController = new AppStateController(this);
+
 
 
     // 2. Ensure the stylesheet allows transparency
@@ -119,6 +124,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Spans Row 0, Cols 0-1
     auto* infoBar = new InfoBar(topBarFrame);
+    m_infoBar = infoBar;
     infoBar->setAppName("ChronoTasks");
     infoBar->setCurrentScreenLabel("TEST Home");
 
@@ -216,11 +222,55 @@ MainWindow::MainWindow(QWidget* parent)
     // 4. CONTENT WINDOW (.Content_window)
     // ============================================================
     // CSS: grid-area: 2 / 2 / 4 / 6; (Row 1, Col 1, Span 2, Span 4)
-    QFrame* content = createWidget("content", "#ecf0f1", "color: #333;", true, false);
-    mainLayout->addWidget(content, 1, 1, 2, 2);
-    content->installEventFilter(this); // Watch for resize events on content
+    m_mainContent = new MainContentView(this);
+    mainLayout->addWidget(m_mainContent, 1, 1, 2, 2);
+
+    // --- RECENT ARCHITECTURAL INTEGRATION ---
+    // React to State Changes
+    connect(m_stateController, &AppStateController::contextChanged,
+            this, [this](const AppContext& ctx) {
+        // Update the InfoBar top label
+        if (m_infoBar) {
+            m_infoBar->setCurrentScreenLabel(ctx.activeWorkspaceName);
+        }
+    });
+
+    connect(m_stateController, &AppStateController::contextChanged,
+            m_sideBar->primary(), &WorkspaceContextSection::setContext);
+
+    connect(m_stateController, &AppStateController::contextChanged,
+            m_mainContent, qOverload<const AppContext&>(&MainContentView::setActiveWorkspace));
+
+    // Handle Sidebar Intent
+    connect(m_sideBar->primary(), &WorkspaceContextSection::requestWorkspaceSwitch, this, [this](){
+        WorkspaceSwitchDialog dlg(
+                m_workspaceRepo->workspaces(),
+                m_stateController->context().activeWorkspaceId,
+                this
+            );
+
+        if (dlg.exec() == QDialog::Accepted) {
+            const QString id = dlg.selectedWorkspaceId();
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(id);
+            m_stateController->setActiveWorkspace(ws.id, ws.name);
+        }
+    });
+
+    // Ensure at least one workspace exists and set it active
+    auto workspaces = m_workspaceRepo->workspaces();
+    if (workspaces.isEmpty()) {
+        m_workspaceRepo->createWorkspace("Personal Workspace");
+        workspaces = m_workspaceRepo->workspaces();
+    }
+
+    if (!workspaces.isEmpty()) {
+        const Workspace& ws = workspaces.first();
+        m_stateController->setActiveWorkspace(ws.id, ws.name);
+    }
+
+    m_mainContent->installEventFilter(this); // Watch for resize events on content
     // Adding the floating toggle button for sidebar linked to content area
-    m_floatingToggleButton = new QPushButton(content);
+    m_floatingToggleButton = new QPushButton(m_mainContent);
     m_floatingToggleButton->setText("☰");
     m_floatingToggleButton->setToolTip("Show Sidebar");
     m_floatingToggleButton->setFixedSize(36, 36);
@@ -395,7 +445,7 @@ void MainWindow::setupSideBar() {
     // Apply initial stretches based on mode
     auto* grid = qobject_cast<QGridLayout*>(layout());
     if (grid) {
-        if (m == SideBar::Mode::Default) {
+        if (m != SideBar::Mode::Default) {
             grid->setColumnStretch(0, 0);
             grid->setColumnStretch(1, 14);
             grid->setColumnStretch(2, 10);
@@ -405,15 +455,7 @@ void MainWindow::setupSideBar() {
             grid->setColumnStretch(2, 10);
         }
     }
-    connect(m_sideBar->primary(), &WorkspaceContextSection::triggered, this, [this]() {
-            // Add logic to show the personal workspace
-            // example: m_stakedW // Update the InfoBar to reflect the current screen
-                if (m_infoBar) {
-                    m_infoBar->setCurrentScreenLabel("Personal Workspace");
-                }
-                qDebug() << "Switching to Personal Workspace view";
 
-    } );
 
     updateFloatingToggleButtonVisibility();
 }

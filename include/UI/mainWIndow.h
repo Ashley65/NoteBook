@@ -26,7 +26,9 @@
 #include "components/Top_Menubar/NavigationBar.h"
 #include "components/Top_Menubar/MenuButtonBar.h"
 #include "components/SIde_Bar/sideBar.h"
-
+#include "helpers/AppStateController.h"
+#include "Data/workspace/WorkspaceRepository.h"
+#include "components/Content_Windows/MainContentView.h"
 
 class MainWindow : public QWidget
 {
@@ -42,6 +44,10 @@ public slots:
     void refreshPage();
 
 private:
+    AppStateController* m_stateController {nullptr};
+    WorkspaceRepository* m_workspaceRepo {nullptr};
+    MainContentView* m_mainContent {nullptr};
+
     static QFrame* createWidget(const QString& title,
                                 const QString& color,
                                 const QString& extraStyle = "",

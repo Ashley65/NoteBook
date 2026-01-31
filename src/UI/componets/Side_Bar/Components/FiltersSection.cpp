@@ -3,7 +3,7 @@
 //
 #include <UI/components/SIde_Bar/componets/FiltersSection.h>
 #include <QVBoxLayout>
-#include <UI/helpers/IconHelper.h>
+#include <helpers/IconHelper.h>
 #include <QVariant>
 #include <QPainter>
 #include <QPixmap>
@@ -117,21 +117,21 @@ void FiltersSection::setCompact(bool compact) {
             QColor color;
 
             if (fullName.contains("High Priority", Qt::CaseInsensitive)) {
-                initials = "HP"; color = "#E74C3C"; // Red
+                initials = "HP"; color = 0xE74C3C; // Red
             }
             else if (fullName.contains("Overdue", Qt::CaseInsensitive)) {
-                initials = "OV"; color = "#E67E22"; // Orange
+                initials = "OV"; color = 0xE67E22; // Orange
             }
             else if (fullName.contains("No Due", Qt::CaseInsensitive)) {
-                initials = "ND"; color = "#95A5A6"; // Grey
+                initials = "ND"; color = 0x95A5A6; // Grey
             }
             else if (fullName.contains("Completed", Qt::CaseInsensitive)) {
-                initials = "OK"; color = "#27AE60"; // Green
+                initials = "OK"; color = 0x27AE60; // Green
             }
             else {
                 // Default: First 2 letters
                 initials = fullName.left(2).toUpper();
-                color = "#6c757d";
+                color = 0x6c757d;
             }
 
             // USE THE HELPER

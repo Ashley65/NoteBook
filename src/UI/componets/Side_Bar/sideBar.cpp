@@ -3,7 +3,7 @@
 //
 #include <UI/components/SIde_Bar/sideBar.h>
 #include <UI/components/SIde_Bar/componets/CoreNavigationSection.h>
-#include <UI/components/SIde_Bar/componets/PrimaryActionSection.h>
+#include <UI/components/SIde_Bar/componets/WorkspaceContextSection.h>
 #include <UI/components/SIde_Bar/componets/ProjectsSection.h>
 #include <UI/components/SIde_Bar/componets/FiltersSection.h>
 #include <UI/components/SIde_Bar/componets/FooterSection.h>
