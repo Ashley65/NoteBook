@@ -11,11 +11,16 @@ if (WIN32)
 endif ()
 
 
+
 find_package(Qt6 COMPONENTS
         Core
         Gui
         Widgets
         Svg
+        Quick
+        QuickWidgets
+        QuickLayouts
+        QuickControls2
         REQUIRED)
 
 
@@ -70,10 +75,14 @@ add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 
 
 target_link_libraries(taskHelper PRIVATE
-        Qt::Core
-        Qt::Gui
-        Qt::Widgets
-        Qt::Svg
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Widgets
+        Qt6::Svg
+        Qt6::Quick
+        Qt6::QuickWidgets
+        Qt6::QuickLayouts
+        Qt6::QuickControls2
 )
 
 target_include_directories(taskHelper PRIVATE
@@ -94,6 +103,7 @@ if (APPLE)
             MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
     )
 endif()
+
 
 if (WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     set(DEBUG_SUFFIX)
@@ -116,12 +126,27 @@ if (WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
                 "${QT_INSTALL_PATH}/plugins/platforms/qwindows${DEBUG_SUFFIX}.dll"
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms/")
     endif ()
-    foreach (QT_LIB Core Gui Widgets Svg)
+
+    # Updated: Added QuickControls2Fusion to the list
+    foreach (QT_LIB Core Gui Widgets Svg Quick QuickWidgets Qml QmlModels QmlMeta QmlWorkerScript OpenGL Network QuickLayouts QuickControls2 QuickTemplates2 ShaderTools QuickShapes QuickControls2Impl QuickControls2Basic QuickControls2Fusion)
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy
                 "${QT_INSTALL_PATH}/bin/Qt6${QT_LIB}${DEBUG_SUFFIX}.dll"
                 "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
     endforeach (QT_LIB)
+
+    # QtQuick/Shapes and QtQuick/NativeStyle are already here from previous step
+    set(QML_MODULES QtQuick/Layouts QtQuick/Controls QtQuick/Templates QtQuick/Window QtQuick/Shapes QtQuick/NativeStyle)
+    foreach(QML_MOD ${QML_MODULES})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E make_directory
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/qml/${QML_MOD}")
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${QT_INSTALL_PATH}/qml/${QML_MOD}"
+                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/qml/${QML_MOD}")
+    endforeach()
+
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/iconengines/")

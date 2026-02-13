@@ -233,16 +233,21 @@ MainWindow::MainWindow(QWidget* parent)
         if (m_infoBar) {
             m_infoBar->setCurrentScreenLabel(ctx.activeWorkspaceName);
         }
+        // Update the Sidebar label
+        if (m_sideBar) {
+            m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
+        }
     });
 
-    connect(m_stateController, &AppStateController::contextChanged,
-            m_sideBar->primary(), &WorkspaceContextSection::setContext);
+    // Remove the old connection to m_sideBar->primary() since it's now handled by the above lambda
+    // connect(m_stateController, &AppStateController::contextChanged,
+    //         m_sideBar->primary(), &WorkspaceContextSection::setContext);
 
     connect(m_stateController, &AppStateController::contextChanged,
             m_mainContent, qOverload<const AppContext&>(&MainContentView::setActiveWorkspace));
 
     // Handle Sidebar Intent
-    connect(m_sideBar->primary(), &WorkspaceContextSection::requestWorkspaceSwitch, this, [this](){
+    connect(m_sideBar, &SideBar::workspaceSwitchRequested, this, [this](){
         WorkspaceSwitchDialog dlg(
                 m_workspaceRepo->workspaces(),
                 m_stateController->context().activeWorkspaceId,
