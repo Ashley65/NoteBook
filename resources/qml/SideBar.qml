@@ -78,7 +78,7 @@ Rectangle {
                     title: "Projects"
                     compact: sidebarRoot.isCompact
 
-                    // Example Data mimicking your screenshot
+                    // Example Data
                     model: ListModel {
                         ListElement { name: "System Design"; colorCode: "#FFD700"; icon: "" } // Gold
                         ListElement { name: "Fitness Plan"; colorCode: "#9ACD32"; icon: "" }  // Green
