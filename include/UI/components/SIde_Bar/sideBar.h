@@ -8,6 +8,7 @@
 #include <QFrame>
 #include <QQuickWidget>
 #include <QQmlContext>
+#include <QMenu>
 
 class SideBar : public QFrame
 {
@@ -37,9 +38,12 @@ public:
     Q_INVOKABLE void onPrimaryClicked();
     Q_INVOKABLE void onToggleMode();
 
-    signals:
-        void primaryTriggered();
+signals:
+    void primaryTriggered();
     void workspaceSwitchRequested();
+    void workspaceCreateRequested();
+    void workspaceDeleteRequested();
+    void workspaceSettingsRequested();
     void coreItemSelected(int item /* map to enum in section */);
     void projectSelected(int projectId);
     void filterSelected(int filterId);
@@ -47,12 +51,19 @@ public:
     void workspaceNameChanged();
 
 
-private:
+private slots:
+    void onSwitchWorkspace();
+    void onCreateWorkspace();
+    void onDeleteWorkspace();
+    void onWorkspaceSettings();
 
+private:
     void applyMode();
+    void showWorkspaceMenu();
     Mode m_mode { Mode::Default };
     QString m_workspaceName { "Personal Workspace" };
     QQuickWidget* m_quickWidget { nullptr };
+    QMenu* m_workspaceMenu { nullptr };
 
 };
 

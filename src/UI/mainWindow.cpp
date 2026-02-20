@@ -227,8 +227,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     // --- RECENT ARCHITECTURAL INTEGRATION ---
     // React to State Changes
-    connect(m_stateController, &AppStateController::contextChanged,
-            this, [this](const AppContext& ctx) {
+    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
+            this, [this]() {
+        const AppContext& ctx = m_stateController->context();
         // Update the InfoBar top label
         if (m_infoBar) {
             m_infoBar->setCurrentScreenLabel(ctx.activeWorkspaceName);
@@ -240,11 +241,14 @@ MainWindow::MainWindow(QWidget* parent)
     });
 
     // Remove the old connection to m_sideBar->primary() since it's now handled by the above lambda
-    // connect(m_stateController, &AppStateController::contextChanged,
+    // connect(m_stateController, &AppStateController::activeWorkspaceChanged,
     //         m_sideBar->primary(), &WorkspaceContextSection::setContext);
 
-    connect(m_stateController, &AppStateController::contextChanged,
-            m_mainContent, qOverload<const AppContext&>(&MainContentView::setActiveWorkspace));
+    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
+            this, [this]() {
+        const AppContext& ctx = m_stateController->context();
+        m_mainContent->setActiveWorkspace(ctx);
+    });
 
     // Handle Sidebar Intent
     connect(m_sideBar, &SideBar::workspaceSwitchRequested, this, [this](){

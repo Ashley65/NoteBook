@@ -6,6 +6,8 @@
 #include <QFrame>
 #include <QVBoxLayout>
 #include <QDebug>
+#include <QMenu>
+#include <QCursor>
 
 SideBar::SideBar(QWidget* parent)
     : QFrame(parent)
@@ -58,7 +60,7 @@ void SideBar::onItemClicked(const QString& type, const QString& id) {
 }
 
 void SideBar::onPrimaryClicked() {
-    emit workspaceSwitchRequested();
+    showWorkspaceMenu();
 }
 
 void SideBar::onToggleMode() {
@@ -80,6 +82,45 @@ void SideBar::applyMode() {
     } else {
         setFixedWidth(260);
     }
+}
 
+void SideBar::showWorkspaceMenu() {
+    if (!m_workspaceMenu) {
+        m_workspaceMenu = new QMenu(this);
 
+        QAction* switchAction = m_workspaceMenu->addAction("Switch Workspace");
+        QAction* createAction = m_workspaceMenu->addAction("Create Workspace");
+        QAction* deleteAction = m_workspaceMenu->addAction("Delete Workspace");
+
+        m_workspaceMenu->addSeparator();
+
+        QAction* settingsAction = m_workspaceMenu->addAction("Workspace Settings");
+
+        connect(switchAction, &QAction::triggered, this, &SideBar::onSwitchWorkspace);
+        connect(createAction, &QAction::triggered, this, &SideBar::onCreateWorkspace);
+        connect(deleteAction, &QAction::triggered, this, &SideBar::onDeleteWorkspace);
+        connect(settingsAction, &QAction::triggered, this, &SideBar::onWorkspaceSettings);
+    }
+
+    m_workspaceMenu->exec(QCursor::pos());
+}
+
+void SideBar::onSwitchWorkspace() {
+    qDebug() << "Switch workspace requested";
+    emit workspaceSwitchRequested();
+}
+
+void SideBar::onCreateWorkspace() {
+    qDebug() << "Create workspace requested";
+    emit workspaceCreateRequested();
+}
+
+void SideBar::onDeleteWorkspace() {
+    qDebug() << "Delete workspace requested";
+    emit workspaceDeleteRequested();
+}
+
+void SideBar::onWorkspaceSettings() {
+    qDebug() << "Workspace settings requested";
+    emit workspaceSettingsRequested();
 }

@@ -68,13 +68,13 @@ Rectangle {
             clip: true
             ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
-            ColumnLayout {
+            Column { // CHANGED from ColumnLayout to Column
                 width: sidebarRoot.width - 20 // Explicit width based on sidebar width
                 spacing: 20
 
                 // PROJECTS GROUP
                 SidebarSection {
-                    Layout.fillWidth: true
+                    width: parent.width // ADDED explicit width
                     title: "Projects"
                     compact: sidebarRoot.isCompact
 
@@ -87,9 +87,9 @@ Rectangle {
                     }
 
                     delegate: SidebarItem {
+                        width: sidebarRoot.width - 20 // FORCE width for delegate
                         text: model.name || ""
-                        // Show avatar circles for projects (colored circles with initials)
-                        useAvatar: true  // ← Simplified to always true
+                        useAvatar: true
                         avatarColor: model.colorCode || "transparent"
                         avatarText: (model.name || "").substring(0, 2).toUpperCase()
                         compact: sidebarRoot.isCompact
@@ -99,7 +99,7 @@ Rectangle {
 
                 // FILTERS GROUP
                 SidebarSection {
-                    Layout.fillWidth: true
+                    width: parent.width // ADDED explicit width
                     title: "Filters"
                     compact: sidebarRoot.isCompact
 
@@ -111,11 +111,11 @@ Rectangle {
                     }
 
                     delegate: SidebarItem {
+                        width: sidebarRoot.width - 20 // FORCE width for delegate
                         text: model.name || ""
-                        useAvatar: true // Filters always use the small coloured dot/avatar style
+                        useAvatar: true
                         avatarColor: model.colorCode || "transparent"
                         avatarText: sidebarRoot.isCompact ? (model.code || "") : "🏳️" // Flag or code
-
                         compact: sidebarRoot.isCompact
                         onClicked: sideBar.onItemClicked("filter", model.name || "")
                     }
@@ -183,6 +183,10 @@ Rectangle {
 
         Layout.fillWidth: true
         Layout.preferredHeight: 40
+
+        // ADD THIS LINE: Explicit fallback to fix QML alias layout bug
+        width: parent ? parent.width : 0
+
         color: isSelected ? "#1f2335" : "transparent" // Selection background
         radius: 6
 
@@ -198,16 +202,14 @@ Rectangle {
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: sidebarItem.compact ? 0 : 12
-            anchors.rightMargin: 8
-            spacing: 12
-            Layout.alignment: Qt.AlignHCenter
+            anchors.rightMargin: sidebarItem.compact ? 0 : 8
+            spacing: sidebarItem.compact ? 0 : 12
 
             // Icon Area
             Item {
-                Layout.preferredWidth: 30
+                Layout.preferredWidth: sidebarItem.compact ? sidebarItem.width : 30
                 Layout.preferredHeight: 30
-                Layout.fillWidth: sidebarItem.compact  // Expand to fill width in compact mode
-                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter  // Center both horizontally and vertically
+                Layout.alignment: Qt.AlignHCenter | Qt.AlignVCenter
 
                 // Option A: Standard Icon
                 Text {
@@ -241,18 +243,18 @@ Rectangle {
             // Text Label (Hidden in compact mode)
             Text {
                 id: labelText
-                visible: sidebarRoot.width > 100
+                visible: !sidebarItem.compact
                 text: sidebarItem.text
                 color: "#c0caf5"
                 font.pixelSize: 14
-                Layout.fillWidth: sidebarRoot.width > 100  // Don't fill width in compact mode
-                Layout.preferredWidth: sidebarRoot.width > 100 ? -1 : 0  // 0 width in compact mode
+                Layout.fillWidth: !sidebarItem.compact  // Don't fill width in compact mode
+                Layout.preferredWidth: sidebarItem.compact ? 0 : -1  // 0 width in compact mode
                 Layout.alignment: Qt.AlignVCenter
                 elide: Text.ElideRight
                 wrapMode: Text.NoWrap
 
                 Component.onCompleted: {
-                    console.log("Text label created - visible:", visible, "compact:", sidebarItem.compact, "text:", text, "width:", sidebarRoot.width)
+                    console.log("Text label created - visible:", visible, "compact:", sidebarItem.compact, "text:", text)
                 }
             }
         }
