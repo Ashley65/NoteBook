@@ -8,6 +8,7 @@
 
 #include <QString>
 #include <QDateTime>
+#include <QUuid>
 
 enum class TaskStatus
 {

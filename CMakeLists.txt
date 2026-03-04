@@ -21,6 +21,7 @@ find_package(Qt6 COMPONENTS
         QuickWidgets
         QuickLayouts
         QuickControls2
+        Core5Compat
         REQUIRED)
 
 
@@ -42,7 +43,9 @@ set (SOURCE_FILES
         src/helpers/AppStateController.cpp
         src/Data/workspace/WorkspaceRepository.cpp
         src/UI/componets/Content_Windows/WorkspaceView.cpp
-        src/Data/workspace/WorkspaceSwitchDialog.cpp)
+        src/Data/workspace/WorkspaceSwitchDialog.cpp
+        src/Data/workspace/WorkspaceCreateDialog.cpp
+        src/Data/workspace/WorkspaceDeleteDialog.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -69,7 +72,12 @@ set (HEADER_FILES
         include/Data/workspace/WorkspaceRepository.h
         include/UI/components/Content_Windows/MainContentView.h
         include/helpers/WorkspaceCommand.h
-        include/Data/workspace/WorkspaceSwitchDialog.h)
+        include/Data/workspace/WorkspaceSwitchDialog.h
+        include/Data/workspace/WorkspaceCreateDialog.h
+        include/Data/workspace/WorkspaceDeleteDialog.h
+        include/Data/workspace/WorkspaceSettingsWindow.h
+        include/Data/workspace/Structure/Note.h
+        include/Data/workspace/Structure/FileAttachment.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 
@@ -83,6 +91,7 @@ target_link_libraries(taskHelper PRIVATE
         Qt6::QuickWidgets
         Qt6::QuickLayouts
         Qt6::QuickControls2
+        Qt6::Core5Compat
 )
 
 target_include_directories(taskHelper PRIVATE

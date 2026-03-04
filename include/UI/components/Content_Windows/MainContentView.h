@@ -6,8 +6,7 @@
 #define TASKHELPER_MAINCONTENTVIEW_H
 #pragma once
 #include <QStackedWidget>
-//#include <QQuickWidget>
-//#include <QQmlContext>
+
 #include "helpers/Workspace.h"
 
 #include <helpers/AppStateController.h>
@@ -17,13 +16,13 @@ class WorkspaceView;
 class MainContentView : public QStackedWidget
 {
     Q_OBJECT
-    //Q_PROPERTY(QString activeWorkspaceId READ activeWorkspaceId WRITE setActiveWorkspace NOTIFY activeWorkspaceChanged)
 public:
     explicit MainContentView(QWidget* parent = nullptr);
     void setActiveWorkspace(const Workspace& ws);
     void setActiveWorkspace(const AppContext& ctx);
 
     // QML Interface
+
 
 
 private:

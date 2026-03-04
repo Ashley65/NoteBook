@@ -64,6 +64,7 @@ private:
     void updateFloatingToggleButtonVisibility();
 
     void setupSideBar();
+    void setupSidebarConnections();
 
     void updateWindowTheme();
     [[nodiscard]] bool isDarkModeEnabled() const;

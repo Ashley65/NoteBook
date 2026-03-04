@@ -11,6 +11,9 @@
 #include <QWidget>
 #include <UI/mainWIndow.h>
 #include <UI/components/SIde_Bar/sideBar.h>
+
+#include "Data/workspace/WorkspaceCreateDialog.h"
+#include "Data/workspace/WorkspaceDeleteDialog.h"
 #include "Data/workspace/WorkspaceSwitchDialog.h"
 
 #include "UI/components/SIde_Bar/componets/WorkspaceContextSection.h"
@@ -212,8 +215,9 @@ MainWindow::MainWindow(QWidget* parent)
     sideBarFrame = new QFrame();
     mainLayout->addWidget(sideBarFrame, 1, 0, 2, 1);
 
-    // now this will see a non\-null sideBarFrame
+    // now this will see a non-null sideBarFrame
     setupSideBar();
+    setupSidebarConnections();
 
 
 
@@ -224,46 +228,6 @@ MainWindow::MainWindow(QWidget* parent)
     // CSS: grid-area: 2 / 2 / 4 / 6; (Row 1, Col 1, Span 2, Span 4)
     m_mainContent = new MainContentView(this);
     mainLayout->addWidget(m_mainContent, 1, 1, 2, 2);
-
-    // --- RECENT ARCHITECTURAL INTEGRATION ---
-    // React to State Changes
-    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
-            this, [this]() {
-        const AppContext& ctx = m_stateController->context();
-        // Update the InfoBar top label
-        if (m_infoBar) {
-            m_infoBar->setCurrentScreenLabel(ctx.activeWorkspaceName);
-        }
-        // Update the Sidebar label
-        if (m_sideBar) {
-            m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
-        }
-    });
-
-    // Remove the old connection to m_sideBar->primary() since it's now handled by the above lambda
-    // connect(m_stateController, &AppStateController::activeWorkspaceChanged,
-    //         m_sideBar->primary(), &WorkspaceContextSection::setContext);
-
-    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
-            this, [this]() {
-        const AppContext& ctx = m_stateController->context();
-        m_mainContent->setActiveWorkspace(ctx);
-    });
-
-    // Handle Sidebar Intent
-    connect(m_sideBar, &SideBar::workspaceSwitchRequested, this, [this](){
-        WorkspaceSwitchDialog dlg(
-                m_workspaceRepo->workspaces(),
-                m_stateController->context().activeWorkspaceId,
-                this
-            );
-
-        if (dlg.exec() == QDialog::Accepted) {
-            const QString id = dlg.selectedWorkspaceId();
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(id);
-            m_stateController->setActiveWorkspace(ws.id, ws.name);
-        }
-    });
 
     // Ensure at least one workspace exists and set it active
     auto workspaces = m_workspaceRepo->workspaces();
@@ -467,6 +431,71 @@ void MainWindow::setupSideBar() {
 
 
     updateFloatingToggleButtonVisibility();
+}
+
+void MainWindow::setupSidebarConnections()
+{
+    if (!m_sideBar || !m_stateController || !m_workspaceRepo) return;
+
+    // React to State Changes
+    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
+            this, [this]() {
+        const AppContext& ctx = m_stateController->context();
+        // Update the InfoBar top label
+        if (m_infoBar) {
+            m_infoBar->setCurrentScreenLabel(ctx.activeWorkspaceName);
+        }
+        // Update the Sidebar label
+        if (m_sideBar) {
+            m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
+        }
+    });
+
+    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
+            this, [this]() {
+        const AppContext& ctx = m_stateController->context();
+        m_mainContent->setActiveWorkspace(ctx);
+    });
+
+    // Handle Sidebar Intent
+    connect(m_sideBar, &SideBar::workspaceSwitchRequested, this, [this](){
+        WorkspaceSwitchDialog dlg(
+                m_workspaceRepo->workspaces(),
+                m_stateController->context().activeWorkspaceId,
+                this
+            );
+
+        if (dlg.exec() == QDialog::Accepted) {
+            const QString id = dlg.selectedWorkspaceId();
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(id);
+            m_stateController->setActiveWorkspace(ws.id, ws.name);
+        }
+    });
+
+    // Handle Workspace Menu delete Request
+    connect(m_sideBar, &SideBar::workspaceDeleteRequested, this, [this]()
+    {
+        WorkspaceDeleteDialog dlg(m_workspaceRepo->workspaces(), this);
+        if (dlg.exec() == QDialog::Accepted) {
+            const QString id = dlg.selectedWorkspaceId();
+            m_workspaceRepo->deleteWorkspace(id);
+            // Optionally refresh the UI or switch to another workspace here
+        }
+    });
+
+    // Handle Workspace Menu create Request
+    connect(m_sideBar, &SideBar::workspaceCreateRequested, this, [this]() {
+        WorkspaceCreateDialog dlg(this, m_workspaceRepo);
+        if (dlg.exec() == QDialog::Accepted) {
+            QString newName = dlg.workspaceName();
+            QString type = dlg.workspaceType();
+            QString description = dlg.workspaceDescription();
+            if (!newName.isEmpty()) {
+                m_workspaceRepo->createWorkspace(newName, type, description);
+                // Optionally refresh the UI or switch to the new workspace here
+            }
+        }
+    });
 }
 void MainWindow::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
