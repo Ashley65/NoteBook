@@ -18,6 +18,7 @@ int main(int argc, char *argv[]) {
     MainWindow window;
     app.setOrganizationName("none");
     app.setApplicationName("flow");
+
     window.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
     window.show();
     return app.exec();

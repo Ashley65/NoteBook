@@ -22,6 +22,7 @@ find_package(Qt6 COMPONENTS
         QuickLayouts
         QuickControls2
         Core5Compat
+        Network
         REQUIRED)
 
 
@@ -45,7 +46,9 @@ set (SOURCE_FILES
         src/UI/componets/Content_Windows/WorkspaceView.cpp
         src/Data/workspace/WorkspaceSwitchDialog.cpp
         src/Data/workspace/WorkspaceCreateDialog.cpp
-        src/Data/workspace/WorkspaceDeleteDialog.cpp)
+        src/Data/workspace/WorkspaceDeleteDialog.cpp
+        src/Data/workspace/WorkspaceSettingsWindow.cpp
+        src/UI/componets/Content_Windows/Page/NetworkTestPage.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -77,7 +80,12 @@ set (HEADER_FILES
         include/Data/workspace/WorkspaceDeleteDialog.h
         include/Data/workspace/WorkspaceSettingsWindow.h
         include/Data/workspace/Structure/Note.h
-        include/Data/workspace/Structure/FileAttachment.h)
+        include/Data/workspace/Structure/FileAttachment.h
+        include/UI/components/Content_Windows/IWorkspaceView.h
+        include/UI/components/Content_Windows/WorkspaceViewFactory.h
+        include/Data/helper/validater.h
+        include/UI/components/Content_Windows/page/NetworkTestPage.h
+        include/Data/networkInterface.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 
@@ -92,6 +100,7 @@ target_link_libraries(taskHelper PRIVATE
         Qt6::QuickLayouts
         Qt6::QuickControls2
         Qt6::Core5Compat
+        Qt6::Network
 )
 
 target_include_directories(taskHelper PRIVATE

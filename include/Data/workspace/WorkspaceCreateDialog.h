@@ -8,6 +8,7 @@
 #include <QDialog>
 #include <QLineEdit>
 #include <QDialogButtonBox>
+#include <QComboBox>
 
 #include "helpers/Workspace.h"
 #include "Data/workspace/WorkspaceRepository.h"
@@ -32,7 +33,7 @@ private slots:
 private:
     // UI Elements
     QLineEdit* nameEdit_;
-    QLineEdit* typeEdit_;
+    QComboBox* typeComboBox_;
     QLineEdit* descriptionEdit_;
     bool unique = true; // Flag to track if the name is unique
 

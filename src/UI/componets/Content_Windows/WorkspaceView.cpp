@@ -3,7 +3,7 @@
 #include <QLabel>
 
 WorkspaceView::WorkspaceView(const Workspace& ws, QWidget* parent)
-    : QWidget(parent), workspaceId_(ws.id)
+    : IWorkspaceView(ws, parent), workspaceId_(ws.id)
 {
     auto* layout = new QVBoxLayout(this);
     auto* label = new QLabel("Workspace: " + ws.name, this);
@@ -15,4 +15,15 @@ WorkspaceView::WorkspaceView(const Workspace& ws, QWidget* parent)
     auto* subLabel = new QLabel("ID: " + ws.id, this);
     subLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(subLabel);
+}
+
+void WorkspaceView::refresh()
+{
+    // Implementation for refreshing the view
+}
+
+void WorkspaceView::updateWorkspace(const Workspace& ws)
+{
+    workspaceId_ = ws.id;
+    // Update UI elements based on the new workspace data
 }

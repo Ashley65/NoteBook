@@ -8,12 +8,17 @@
 #include <QWidget>
 #include "helpers/Workspace.h"
 
-class WorkspaceView : public QWidget
+#include "IWorkspaceView.h"
+
+class WorkspaceView : public IWorkspaceView
 {
     Q_OBJECT
 public:
     explicit WorkspaceView(const Workspace& ws, QWidget* parent = nullptr);
 
+    // IWorkspaceView interface
+    void refresh() override;
+    void updateWorkspace(const Workspace& ws) override;
 
 private:
     QString workspaceId_;

@@ -11,7 +11,8 @@
 
 #include <helpers/AppStateController.h>
 
-class WorkspaceView;
+#include <QHash>
+#include "IWorkspaceView.h"
 
 class MainContentView : public QStackedWidget
 {
@@ -21,11 +22,7 @@ public:
     void setActiveWorkspace(const Workspace& ws);
     void setActiveWorkspace(const AppContext& ctx);
 
-    // QML Interface
-
-
-
 private:
-    QHash<QString, WorkspaceView*> views_;
+    QHash<QString, IWorkspaceView*> views_;
 };
 #endif //TASKHELPER_MAINCONTENTVIEW_H

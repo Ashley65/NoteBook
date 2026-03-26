@@ -1,6 +1,4 @@
-//
-// Created by DevAccount on 23/02/2026.
-//
+
 
 #include "Data/workspace/WorkspaceCreateDialog.h"
 
@@ -24,10 +22,10 @@ WorkspaceCreateDialog::WorkspaceCreateDialog(QWidget *parent, WorkspaceRepositor
     layout->addWidget(nameEdit_);
 
     layout->addWidget(new QLabel("Type:", this));
-    typeEdit_ = new QLineEdit(this);
-    typeEdit_->setPlaceholderText("e.g., Personal, Work, etc.");
-    typeEdit_->setText("custom");
-    layout->addWidget(typeEdit_);
+    typeComboBox_ = new QComboBox(this);
+    typeComboBox_->addItems({"Default", "Work", "Study", "Custom"});
+
+    layout->addWidget(typeComboBox_);
 
     layout->addWidget(new QLabel("Description:", this));
     descriptionEdit_ = new QLineEdit(this);
@@ -62,7 +60,7 @@ QString WorkspaceCreateDialog::workspaceName() const
 
 QString WorkspaceCreateDialog::workspaceType() const
 {
-    return typeEdit_->text().trimmed();
+    return typeComboBox_->currentText().trimmed();
 }
 
 QString WorkspaceCreateDialog::workspaceDescription() const

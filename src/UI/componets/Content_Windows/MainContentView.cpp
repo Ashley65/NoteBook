@@ -3,7 +3,7 @@
 //
 
 #include <UI/components/Content_Windows/MainContentView.h>
-#include <UI/components/Content_Windows/WorkspaceView.h>
+#include <UI/components/Content_Windows/WorkspaceViewFactory.h>
 #include <helpers/Workspace.h>
 
 MainContentView::MainContentView(QWidget* parent) : QStackedWidget(parent) {}
@@ -11,8 +11,11 @@ MainContentView::MainContentView(QWidget* parent) : QStackedWidget(parent) {}
 void MainContentView::setActiveWorkspace(const Workspace& ws)
 {
     if (!views_.contains(ws.id)) {
-        views_[ws.id] = new WorkspaceView(ws, this);
-        addWidget(views_[ws.id]);
+        IWorkspaceView* view = WorkspaceViewFactory::createWorkspaceView(ws, this);
+        views_[ws.id] = view;
+        addWidget(view);
+    } else {
+        views_[ws.id]->updateWorkspace(ws);
     }
     setCurrentWidget(views_[ws.id]);
 }

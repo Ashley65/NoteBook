@@ -14,6 +14,7 @@
 
 #include "Data/workspace/WorkspaceCreateDialog.h"
 #include "Data/workspace/WorkspaceDeleteDialog.h"
+#include "Data/workspace/WorkspaceSettingsWindow.h"
 #include "Data/workspace/WorkspaceSwitchDialog.h"
 
 #include "UI/components/SIde_Bar/componets/WorkspaceContextSection.h"
@@ -235,6 +236,27 @@ MainWindow::MainWindow(QWidget* parent)
         m_workspaceRepo->createWorkspace("Personal Workspace");
         workspaces = m_workspaceRepo->workspaces();
     }
+    // Seed a single component-test workspace for local UI experimentation.
+    bool hasTestWorkspace = false;
+    for (const Workspace& existingWorkspace : workspaces) {
+        if (existingWorkspace.name == "Test Workspace") {
+            hasTestWorkspace = true;
+            break;
+        }
+    }
+
+    if (!hasTestWorkspace) {
+        m_workspaceRepo->createWorkspace(
+            "Test Workspace",
+            "lab",
+            "This is a test workspace created on app startup to demonstrate the workspace view functionality."
+        );
+    }
+    m_workspaceRepo->createWorkspace(
+        "Test Workspace",
+        "Lab",
+        "This is a test workspace created on app startup to demonstrate the workspace view functionality."
+    );
 
     if (!workspaces.isEmpty()) {
         const Workspace& ws = workspaces.first();
@@ -449,6 +471,17 @@ void MainWindow::setupSidebarConnections()
         if (m_sideBar) {
             m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
         }
+        if (ctx.activeWorkspaceId.isEmpty()) {
+            return;
+        }
+
+        const Workspace ws = m_workspaceRepo->getWorkspaceById(ctx.activeWorkspaceId);
+        if (!ws.id.isEmpty()) {
+            m_mainContent->setActiveWorkspace(ws);
+            return;
+        }
+
+        // Fallback for stale ids that may exist in persisted AppStateController settings.
     });
 
     connect(m_stateController, &AppStateController::activeWorkspaceChanged,
@@ -481,6 +514,21 @@ void MainWindow::setupSidebarConnections()
             m_workspaceRepo->deleteWorkspace(id);
             // Optionally refresh the UI or switch to another workspace here
         }
+    });
+
+    // Handle workspace setting window
+    connect(m_sideBar, &SideBar::workspaceSettingsRequested, this, [this]() {
+        const QString activeId = m_stateController->context().activeWorkspaceId;
+        if (activeId.isEmpty())
+            return;
+
+        const Workspace ws = m_workspaceRepo->getWorkspaceById(activeId);
+        WorkspaceSettingsWindow dlg(activeId, ws.name, m_workspaceRepo, this);
+
+        const QString titleName = ws.name.isEmpty() ? activeId : ws.name;
+        dlg.setWindowTitle(tr("Workspace Settings: \"%1\"").arg(titleName));
+
+        dlg.exec(); // modal settings window
     });
 
     // Handle Workspace Menu create Request
