@@ -9,6 +9,10 @@ set(CMAKE_AUTOUIC ON)
 if (WIN32)
     set(CMAKE_PREFIX_PATH "C:/Qt/6.10.0/msvc2022_64")
 endif ()
+if (APPLE)
+    set(CMAKE_PREFIX_PATH "/Users/funb/Qt/6.11.0/macos")
+
+endif ()
 
 
 
