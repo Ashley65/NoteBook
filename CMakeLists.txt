@@ -7,7 +7,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 if (WIN32)
-    set(CMAKE_PREFIX_PATH "C:/Qt/6.10.0/msvc2022_64")
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
 endif ()
 
 
@@ -85,7 +85,8 @@ set (HEADER_FILES
         include/UI/components/Content_Windows/WorkspaceViewFactory.h
         include/Data/helper/validater.h
         include/UI/components/Content_Windows/page/NetworkTestPage.h
-        include/Data/networkInterface.h)
+        include/Data/networkInterface.h
+        include/Data/Networking/INetworkAuthService.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 
