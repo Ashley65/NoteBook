@@ -9,6 +9,7 @@
 #include "helpers/Workspace.h"
 #include <QLabel>
 #include <QLineEdit>
+#include <QUuid>
 
 
 class NetworkTestPage : public IWorkspaceView
@@ -31,7 +32,7 @@ private slots:
 
 
 private:
-    QString workspaceId_;
+    QUuid workspaceId_;
     QLineEdit* m_testInputField {nullptr};
     QLabel* m_statusLabel {nullptr};
     QLabel* m_infoLabel {nullptr};

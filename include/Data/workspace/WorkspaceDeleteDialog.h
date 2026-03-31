@@ -7,7 +7,7 @@
 #pragma once
 #include <QDialog>
 #include <QListWidget>
-#include <QString>
+#include <QUuid>
 
 #include "helpers/Workspace.h"
 
@@ -20,7 +20,7 @@ public:
         QWidget* parent = nullptr
         );
 
-    [[nodiscard]] QString selectedWorkspaceId() const;
+    [[nodiscard]] QUuid selectedWorkspaceId() const;
 
 private slots:
 
@@ -29,7 +29,7 @@ private slots:
 
 private:
     QListWidget* list_;
-    QString selectedId_;
+    QUuid selectedId_;
 };
 
 #endif //TASKHELPER_WORKSPACEDELETEDIALOG_H

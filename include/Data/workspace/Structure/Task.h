@@ -28,8 +28,9 @@ enum class TaskPriority
 
 struct Task
 {
-    QString id;
-    QString workspaceId;
+    QUuid id;
+    QUuid workspaceId;
+    QUuid projectId;
     QString title;
     QString description;
     TaskStatus status;

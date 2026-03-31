@@ -18,7 +18,7 @@ struct NameValidationResult {
 
 static NameValidationResult validateWorkspaceName(const QString& name,
     const WorkspaceRepository* repo,
-    const QString& excludeWorkspaceId = {})
+    const QUuid& excludeWorkspaceId = QUuid())
 {
     static const QRegularExpression invalidChars(QStringLiteral("[\\\\/:*?\"<>|]"));
     const QString trimmed = name.trimmed();
@@ -28,7 +28,7 @@ static NameValidationResult validateWorkspaceName(const QString& name,
 
     if (repo) {
         for (const auto& ws : repo->workspaces()) {
-            if (!excludeWorkspaceId.isEmpty() && ws.id == excludeWorkspaceId) continue;
+            if (!excludeWorkspaceId.isNull() && ws.id == excludeWorkspaceId) continue;
             if (ws.name.trimmed().compare(trimmed, Qt::CaseInsensitive) == 0) {
                 return {false, "Workspace name already exists."};
             }

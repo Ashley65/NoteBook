@@ -13,6 +13,7 @@ struct Note
 {
     QUuid id;
     QUuid workspaceId;
+    QUuid projectId;
 
     QString title;
     QString content;       // Rich text (Markdown)

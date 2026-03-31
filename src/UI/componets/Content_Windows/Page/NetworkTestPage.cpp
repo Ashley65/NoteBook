@@ -137,7 +137,7 @@ void NetworkTestPage::onDisplayWorkspaceInfo()
         "Workspace ID: %1\n"
         "Current Time: %2\n"
         "Status: Ready for testing components"
-    ).arg(workspaceId_, QDateTime::currentDateTime().toString(Qt::ISODate));
+    ).arg(workspaceId_.toString(QUuid::WithoutBraces), QDateTime::currentDateTime().toString(Qt::ISODate));
 
     m_infoLabel->setText(info);
 }

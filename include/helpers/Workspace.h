@@ -13,7 +13,7 @@
 struct Workspace
 {
     // Core properties
-    QString id;
+    QUuid id;
     QString name;
     QString type;
     QString description;

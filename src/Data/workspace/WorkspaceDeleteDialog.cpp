@@ -46,7 +46,7 @@ WorkspaceDeleteDialog::WorkspaceDeleteDialog(const QList<Workspace>& workspaces,
 
     connect(buttons, &QDialogButtonBox::accepted, this, [this]() {
     if (auto* item = list_->currentItem()) {
-        selectedId_ = item->data(Qt::UserRole).toString();
+        selectedId_ = item->data(Qt::UserRole).toUuid();
         QString name = item->text(); // Get the name from the list item
         validateSelection(name);     // Show the confirmation box
     } else {
@@ -59,7 +59,7 @@ WorkspaceDeleteDialog::WorkspaceDeleteDialog(const QList<Workspace>& workspaces,
 
 }
 
-QString WorkspaceDeleteDialog::selectedWorkspaceId() const
+QUuid WorkspaceDeleteDialog::selectedWorkspaceId() const
 {
     return selectedId_;
 }

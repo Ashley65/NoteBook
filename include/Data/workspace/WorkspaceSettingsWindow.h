@@ -13,6 +13,7 @@
 #include <QHBoxLayout>
 #include <QCheckBox>
 #include <QPushButton>
+#include <QUuid>
 
 #include "helpers/Workspace.h"
 #include "Data/workspace/WorkspaceRepository.h"
@@ -26,7 +27,7 @@ class WorkspaceSettingsWindow : public QDialog
 {
     Q_OBJECT
 public:
-    explicit WorkspaceSettingsWindow(const QString& workspaceId,const QString& workspaceName,WorkspaceRepository* repository, QWidget* parent = nullptr);
+    explicit WorkspaceSettingsWindow(const QUuid& workspaceId,const QString& workspaceName,WorkspaceRepository* repository, QWidget* parent = nullptr);
     ~WorkspaceSettingsWindow() override;
 
 private slots:
@@ -75,7 +76,7 @@ private:
 
     WorkspaceRepository* m_repository = nullptr; // To access and update the workspace data
     QLabel* nameErrorLabel_ = nullptr; // To show validation errors for the name input
-    QString m_workspaceId;
+    QUuid m_workspaceId;
     QString m_workspaceName;
 };
 

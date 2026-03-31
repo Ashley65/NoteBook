@@ -6,25 +6,27 @@ WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
 {
     // LINK: Load existing workspaces and tasks from persistent storage
     loadWorkspaces();
+    loadProjects();
     loadTasks();
     loadNotes();
     loadAttachments();
+    ensureProjectStructure();
 }
 
 QList<Workspace> WorkspaceRepository::workspaces() const {
     return workspaces_;
 }
 
-Workspace WorkspaceRepository::getWorkspaceById(const QString& id) const {
+Workspace WorkspaceRepository::getWorkspaceById(const QUuid& id) const {
     for (const auto& ws : workspaces_) {
         if (ws.id == id) return ws;
     }
     return {};
 }
 
-QString WorkspaceRepository::createWorkspace(const QString& name, const QString& type, const QString& description) {
+QUuid WorkspaceRepository::createWorkspace(const QString& name, const QString& type, const QString& description) {
     Workspace ws;
-    ws.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    ws.id = QUuid::createUuid();
     ws.name = name;
     ws.type = type;
     ws.description = description;
@@ -55,7 +57,7 @@ void WorkspaceRepository::updateWorkspace(const Workspace& ws) {
     }
 }
 
-void WorkspaceRepository::deleteWorkspace(const QString& id)
+void WorkspaceRepository::deleteWorkspace(const QUuid& id)
 {
 
     for (int i = 0; i < workspaces_.size(); ++i) {
@@ -73,15 +75,22 @@ void WorkspaceRepository::deleteWorkspace(const QString& id)
             }
             saveTasks();
 
+            for (int j = projects_.size() - 1; j >= 0; --j) {
+                if (projects_[j].workspaceId == id) {
+                    projects_.removeAt(j);
+                }
+            }
+            saveProjects();
+
             // LINK: Also remove all notes and their attachments associated with this workspace
             for (int j = notes_.size() - 1; j >= 0; --j) {
-                if (notes_[j].workspaceId.toString(QUuid::WithoutBraces) == id) {
-                    deleteNote(notes_[j].id.toString(QUuid::WithoutBraces));
+                if (notes_[j].workspaceId == id) {
+                    deleteNote(notes_[j].id);
                 }
             }
             // attachments are handled by deleteNote or deleted separately if not linked to a note
             for (int j = attachments_.size() - 1; j >= 0; --j) {
-                if (attachments_[j].workspaceId.toString(QUuid::WithoutBraces) == id) {
+                if (attachments_[j].workspaceId == id) {
                     attachments_.removeAt(j);
                 }
             }
@@ -91,29 +100,114 @@ void WorkspaceRepository::deleteWorkspace(const QString& id)
     }
 }
 
+QList<Project> WorkspaceRepository::getProjectsByWorkspace(const QUuid& workspaceId) const {
+    QList<Project> result;
+    for (const auto& project : projects_) {
+        if (project.workspaceId == workspaceId) {
+            result.append(project);
+        }
+    }
+    return result;
+}
+
+Project WorkspaceRepository::getProjectById(const QUuid& id) const {
+    for (const auto& project : projects_) {
+        if (project.id == id) return project;
+    }
+    return {};
+}
+
+QUuid WorkspaceRepository::createProject(const Project& project) {
+    Project newProject = project;
+    newProject.id = QUuid::createUuid();
+    newProject.createdAt = QDateTime::currentDateTime();
+    newProject.updatedAt = newProject.createdAt;
+
+    projects_.append(newProject);
+    saveProjects();
+    emit projectAdded(newProject);
+    return newProject.id;
+}
+
+void WorkspaceRepository::updateProject(const Project& project) {
+    for (int i = 0; i < projects_.size(); ++i) {
+        if (projects_[i].id == project.id) {
+            projects_[i] = project;
+            projects_[i].updatedAt = QDateTime::currentDateTime();
+            saveProjects();
+            emit projectUpdated(projects_[i]);
+            return;
+        }
+    }
+}
+
+void WorkspaceRepository::deleteProject(const QUuid& id) {
+    for (int i = 0; i < projects_.size(); ++i) {
+        if (projects_[i].id == id) {
+            projects_.removeAt(i);
+            break;
+        }
+    }
+
+    for (int i = tasks_.size() - 1; i >= 0; --i) {
+        if (tasks_[i].projectId == id) {
+            tasks_.removeAt(i);
+        }
+    }
+
+    for (int i = notes_.size() - 1; i >= 0; --i) {
+        if (notes_[i].projectId == id) {
+            deleteNote(notes_[i].id);
+        }
+    }
+
+    for (int i = attachments_.size() - 1; i >= 0; --i) {
+        if (attachments_[i].projectId == id) {
+            attachments_.removeAt(i);
+        }
+    }
+
+    saveProjects();
+    saveTasks();
+    saveNotes();
+    saveAttachments();
+    emit projectDeleted(id);
+}
+
 // Note Management Methods
-QList<Note> WorkspaceRepository::getNotesByWorkspace(const QString& workspaceId) const {
+QList<Note> WorkspaceRepository::getNotesByWorkspace(const QUuid& workspaceId) const {
     QList<Note> result;
-    QUuid wsId = QUuid::fromString(workspaceId);
     for (const auto& note : notes_) {
-        if (note.workspaceId == wsId) {
+        if (note.workspaceId == workspaceId) {
             result.append(note);
         }
     }
     return result;
 }
 
-Note WorkspaceRepository::getNoteById(const QString& id) const {
-    QUuid noteId = QUuid::fromString(id);
+QList<Note> WorkspaceRepository::getNotesByProject(const QUuid& projectId) const {
+    QList<Note> result;
     for (const auto& note : notes_) {
-        if (note.id == noteId) return note;
+        if (note.projectId == projectId) {
+            result.append(note);
+        }
+    }
+    return result;
+}
+
+Note WorkspaceRepository::getNoteById(const QUuid& id) const {
+    for (const auto& note : notes_) {
+        if (note.id == id) return note;
     }
     return {};
 }
 
-QString WorkspaceRepository::createNote(const Note& note) {
+QUuid WorkspaceRepository::createNote(const Note& note) {
     Note newNote = note;
     newNote.id = QUuid::createUuid();
+    if (newNote.projectId.isNull()) {
+        newNote.projectId = defaultProjectForWorkspace(newNote.workspaceId);
+    }
     newNote.createdAt = QDateTime::currentDateTime();
     newNote.updatedAt = newNote.createdAt;
 
@@ -121,7 +215,7 @@ QString WorkspaceRepository::createNote(const Note& note) {
     saveNotes();
 
     emit noteAdded(newNote);
-    return newNote.id.toString(QUuid::WithoutBraces);
+    return newNote.id;
 }
 
 void WorkspaceRepository::updateNote(const Note& note) {
@@ -136,15 +230,14 @@ void WorkspaceRepository::updateNote(const Note& note) {
     }
 }
 
-void WorkspaceRepository::deleteNote(const QString& id) {
-    QUuid noteId = QUuid::fromString(id);
+void WorkspaceRepository::deleteNote(const QUuid& id) {
     for (int i = 0; i < notes_.size(); ++i) {
-        if (notes_[i].id == noteId) {
+        if (notes_[i].id == id) {
             notes_.removeAt(i);
 
             // Cascade delete attachments
             for (int j = attachments_.size() - 1; j >= 0; --j) {
-                if (attachments_[j].noteId == noteId) {
+                if (attachments_[j].noteId == id) {
                     attachments_.removeAt(j);
                 }
             }
@@ -157,52 +250,61 @@ void WorkspaceRepository::deleteNote(const QString& id) {
 }
 
 // Attachment Management Methods
-QList<FileAttachment> WorkspaceRepository::getAttachmentsByWorkspace(const QString& workspaceId) const {
+QList<FileAttachment> WorkspaceRepository::getAttachmentsByWorkspace(const QUuid& workspaceId) const {
     QList<FileAttachment> result;
-    QUuid wsId = QUuid::fromString(workspaceId);
     for (const auto& att : attachments_) {
-        if (att.workspaceId == wsId) {
+        if (att.workspaceId == workspaceId) {
             result.append(att);
         }
     }
     return result;
 }
 
-QList<FileAttachment> WorkspaceRepository::getAttachmentsByNote(const QString& noteId) const {
+QList<FileAttachment> WorkspaceRepository::getAttachmentsByProject(const QUuid& projectId) const {
     QList<FileAttachment> result;
-    QUuid nId = QUuid::fromString(noteId);
     for (const auto& att : attachments_) {
-        if (att.noteId == nId) {
+        if (att.projectId == projectId) {
             result.append(att);
         }
     }
     return result;
 }
 
-FileAttachment WorkspaceRepository::getAttachmentById(const QString& id) const {
-    QUuid attId = QUuid::fromString(id);
+QList<FileAttachment> WorkspaceRepository::getAttachmentsByNote(const QUuid& noteId) const {
+    QList<FileAttachment> result;
     for (const auto& att : attachments_) {
-        if (att.id == attId) return att;
+        if (att.noteId == noteId) {
+            result.append(att);
+        }
+    }
+    return result;
+}
+
+FileAttachment WorkspaceRepository::getAttachmentById(const QUuid& id) const {
+    for (const auto& att : attachments_) {
+        if (att.id == id) return att;
     }
     return {};
 }
 
-QString WorkspaceRepository::createAttachment(const FileAttachment& attachment) {
+QUuid WorkspaceRepository::createAttachment(const FileAttachment& attachment) {
     FileAttachment newAtt = attachment;
     newAtt.id = QUuid::createUuid();
+    if (newAtt.projectId.isNull()) {
+        newAtt.projectId = defaultProjectForWorkspace(newAtt.workspaceId);
+    }
     newAtt.createdAt = QDateTime::currentDateTime();
 
     attachments_.append(newAtt);
     saveAttachments();
 
     emit attachmentAdded(newAtt);
-    return newAtt.id.toString(QUuid::WithoutBraces);
+    return newAtt.id;
 }
 
-void WorkspaceRepository::deleteAttachment(const QString& id) {
-    QUuid attId = QUuid::fromString(id);
+void WorkspaceRepository::deleteAttachment(const QUuid& id) {
     for (int i = 0; i < attachments_.size(); ++i) {
-        if (attachments_[i].id == attId) {
+        if (attachments_[i].id == id) {
             attachments_.removeAt(i);
             saveAttachments();
             emit attachmentDeleted(id);
@@ -212,7 +314,7 @@ void WorkspaceRepository::deleteAttachment(const QString& id) {
 }
 
 // Task Management Methods
-QList<Task> WorkspaceRepository::getTasksByWorkspace(const QString& workspaceId) const {
+QList<Task> WorkspaceRepository::getTasksByWorkspace(const QUuid& workspaceId) const {
     QList<Task> result;
     for (const auto& task : tasks_) {
         if (task.workspaceId == workspaceId) {
@@ -222,16 +324,29 @@ QList<Task> WorkspaceRepository::getTasksByWorkspace(const QString& workspaceId)
     return result;
 }
 
-Task WorkspaceRepository::getTaskById(const QString& id) const {
+QList<Task> WorkspaceRepository::getTasksByProject(const QUuid& projectId) const {
+    QList<Task> result;
+    for (const auto& task : tasks_) {
+        if (task.projectId == projectId) {
+            result.append(task);
+        }
+    }
+    return result;
+}
+
+Task WorkspaceRepository::getTaskById(const QUuid& id) const {
     for (const auto& task : tasks_) {
         if (task.id == id) return task;
     }
     return {};
 }
 
-QString WorkspaceRepository::createTask(const Task& task) {
+QUuid WorkspaceRepository::createTask(const Task& task) {
     Task newTask = task;
-    newTask.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    newTask.id = QUuid::createUuid();
+    if (newTask.projectId.isNull()) {
+        newTask.projectId = defaultProjectForWorkspace(newTask.workspaceId);
+    }
     newTask.createdAt = QDateTime::currentDateTime();
 
     if (newTask.status == TaskStatus::Completed) {
@@ -272,7 +387,7 @@ void WorkspaceRepository::updateTask(const Task& task) {
     }
 }
 
-void WorkspaceRepository::deleteTask(const QString& id) {
+void WorkspaceRepository::deleteTask(const QUuid& id) {
     for (int i = 0; i < tasks_.size(); ++i) {
         if (tasks_[i].id == id) {
             tasks_.removeAt(i);
@@ -326,7 +441,7 @@ void WorkspaceRepository::loadWorkspaces()
     for (int i = 0; i < count; ++i) {
         s.setArrayIndex(i);
         Workspace ws;
-        ws.id = s.value("id").toString();
+        ws.id = QUuid::fromString(s.value("id").toString());
         ws.name = s.value("name").toString();
         ws.type = s.value("type", "custom").toString();
         ws.description = s.value("description").toString();
@@ -349,6 +464,49 @@ void WorkspaceRepository::loadWorkspaces()
     s.sync(); // Ensure data is written to disk immediately
 }
 
+void WorkspaceRepository::saveProjects()
+{
+    QSettings s;
+    s.beginWriteArray("projects");
+
+    for (int i = 0; i < projects_.size(); ++i) {
+        s.setArrayIndex(i);
+        s.setValue("id", projects_[i].id.toString(QUuid::WithoutBraces));
+        s.setValue("workspaceId", projects_[i].workspaceId.toString(QUuid::WithoutBraces));
+        s.setValue("name", projects_[i].name);
+        s.setValue("description", projects_[i].description);
+        s.setValue("isArchived", projects_[i].isArchived);
+        s.setValue("createdAt", projects_[i].createdAt.toString(Qt::ISODate));
+        s.setValue("updatedAt", projects_[i].updatedAt.toString(Qt::ISODate));
+    }
+
+    s.endArray();
+    s.sync();
+}
+
+void WorkspaceRepository::loadProjects()
+{
+    QSettings s;
+    int count = s.beginReadArray("projects");
+
+    projects_.clear();
+
+    for (int i = 0; i < count; ++i) {
+        s.setArrayIndex(i);
+        Project project;
+        project.id = QUuid::fromString(s.value("id").toString());
+        project.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
+        project.name = s.value("name").toString();
+        project.description = s.value("description").toString();
+        project.isArchived = s.value("isArchived", false).toBool();
+        project.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
+        project.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
+        projects_.append(project);
+    }
+
+    s.endArray();
+}
+
 void WorkspaceRepository::saveTasks()
 {
     QSettings s;
@@ -358,6 +516,7 @@ void WorkspaceRepository::saveTasks()
         s.setArrayIndex(i);
         s.setValue("id", tasks_[i].id);
         s.setValue("workspaceId", tasks_[i].workspaceId);
+        s.setValue("projectId", tasks_[i].projectId);
         s.setValue("title", tasks_[i].title);
         s.setValue("description", tasks_[i].description);
         s.setValue("status", static_cast<int>(tasks_[i].status));
@@ -382,8 +541,9 @@ void WorkspaceRepository::loadTasks()
     for (int i = 0; i < count; ++i) {
         s.setArrayIndex(i);
         Task task;
-        task.id = s.value("id").toString();
-        task.workspaceId = s.value("workspaceId").toString();
+        task.id = QUuid::fromString(s.value("id").toString());
+        task.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
+        task.projectId = QUuid::fromString(s.value("projectId").toString());
         task.title = s.value("title").toString();
         task.description = s.value("description").toString();
         task.status = static_cast<TaskStatus>(s.value("status", static_cast<int>(TaskStatus::Pending)).toInt());
@@ -406,6 +566,7 @@ void WorkspaceRepository::saveNotes()
         s.setArrayIndex(i);
         s.setValue("id", notes_[i].id.toString(QUuid::WithoutBraces));
         s.setValue("workspaceId", notes_[i].workspaceId.toString(QUuid::WithoutBraces));
+        s.setValue("projectId", notes_[i].projectId.toString(QUuid::WithoutBraces));
         s.setValue("title", notes_[i].title);
         s.setValue("content", notes_[i].content);
         s.setValue("preview", notes_[i].preview);
@@ -430,6 +591,7 @@ void WorkspaceRepository::loadNotes()
         Note note;
         note.id = QUuid::fromString(s.value("id").toString());
         note.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
+        note.projectId = QUuid::fromString(s.value("projectId").toString());
         note.title = s.value("title").toString();
         note.content = s.value("content").toString();
         note.preview = s.value("preview").toString();
@@ -452,6 +614,7 @@ void WorkspaceRepository::saveAttachments()
         s.setArrayIndex(i);
         s.setValue("id", attachments_[i].id.toString(QUuid::WithoutBraces));
         s.setValue("workspaceId", attachments_[i].workspaceId.toString(QUuid::WithoutBraces));
+        s.setValue("projectId", attachments_[i].projectId.toString(QUuid::WithoutBraces));
         s.setValue("noteId", attachments_[i].noteId.toString(QUuid::WithoutBraces));
         s.setValue("fileName", attachments_[i].fileName);
         s.setValue("filePath", attachments_[i].filePath);
@@ -475,6 +638,7 @@ void WorkspaceRepository::loadAttachments()
         FileAttachment att;
         att.id = QUuid::fromString(s.value("id").toString());
         att.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
+        att.projectId = QUuid::fromString(s.value("projectId").toString());
         att.noteId = QUuid::fromString(s.value("noteId").toString());
         att.fileName = s.value("fileName").toString();
         att.filePath = s.value("filePath").toString();
@@ -485,6 +649,65 @@ void WorkspaceRepository::loadAttachments()
     }
 
     s.endArray();
+}
+
+void WorkspaceRepository::ensureProjectStructure()
+{
+    bool projectsChanged = false;
+    bool tasksChanged = false;
+    bool notesChanged = false;
+    bool attachmentsChanged = false;
+
+    for (const auto& ws : workspaces_) {
+        if (defaultProjectForWorkspace(ws.id).isNull()) {
+            Project project;
+            project.id = QUuid::createUuid();
+            project.workspaceId = ws.id;
+            project.name = "General";
+            project.description = "Default project for migrated workspace records.";
+            project.isArchived = false;
+            project.createdAt = QDateTime::currentDateTime();
+            project.updatedAt = project.createdAt;
+            projects_.append(project);
+            projectsChanged = true;
+        }
+    }
+
+    for (auto& task : tasks_) {
+        if (task.projectId.isNull()) {
+            task.projectId = defaultProjectForWorkspace(task.workspaceId);
+            tasksChanged = true;
+        }
+    }
+
+    for (auto& note : notes_) {
+        if (note.projectId.isNull()) {
+            note.projectId = defaultProjectForWorkspace(note.workspaceId);
+            notesChanged = true;
+        }
+    }
+
+    for (auto& att : attachments_) {
+        if (att.projectId.isNull()) {
+            att.projectId = defaultProjectForWorkspace(att.workspaceId);
+            attachmentsChanged = true;
+        }
+    }
+
+    if (projectsChanged) saveProjects();
+    if (tasksChanged) saveTasks();
+    if (notesChanged) saveNotes();
+    if (attachmentsChanged) saveAttachments();
+}
+
+QUuid WorkspaceRepository::defaultProjectForWorkspace(const QUuid& workspaceId) const
+{
+    for (const auto& project : projects_) {
+        if (project.workspaceId == workspaceId) {
+            return project.id;
+        }
+    }
+    return {};
 }
 
 

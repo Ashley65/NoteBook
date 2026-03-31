@@ -252,11 +252,7 @@ MainWindow::MainWindow(QWidget* parent)
             "This is a test workspace created on app startup to demonstrate the workspace view functionality."
         );
     }
-    m_workspaceRepo->createWorkspace(
-        "Test Workspace",
-        "Lab",
-        "This is a test workspace created on app startup to demonstrate the workspace view functionality."
-    );
+
 
     if (!workspaces.isEmpty()) {
         const Workspace& ws = workspaces.first();
@@ -470,13 +466,14 @@ void MainWindow::setupSidebarConnections()
         // Update the Sidebar label
         if (m_sideBar) {
             m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
+            m_sideBar->setWorkspaceId(ctx.activeWorkspaceId);
         }
-        if (ctx.activeWorkspaceId.isEmpty()) {
+        if (ctx.activeWorkspaceId.isNull()) {
             return;
         }
 
         const Workspace ws = m_workspaceRepo->getWorkspaceById(ctx.activeWorkspaceId);
-        if (!ws.id.isEmpty()) {
+        if (!ws.id.isNull()) {
             m_mainContent->setActiveWorkspace(ws);
             return;
         }
@@ -499,7 +496,7 @@ void MainWindow::setupSidebarConnections()
             );
 
         if (dlg.exec() == QDialog::Accepted) {
-            const QString id = dlg.selectedWorkspaceId();
+            const QUuid id = dlg.selectedWorkspaceId();
             const Workspace ws = m_workspaceRepo->getWorkspaceById(id);
             m_stateController->setActiveWorkspace(ws.id, ws.name);
         }
@@ -510,22 +507,21 @@ void MainWindow::setupSidebarConnections()
     {
         WorkspaceDeleteDialog dlg(m_workspaceRepo->workspaces(), this);
         if (dlg.exec() == QDialog::Accepted) {
-            const QString id = dlg.selectedWorkspaceId();
+            const QUuid id = dlg.selectedWorkspaceId();
             m_workspaceRepo->deleteWorkspace(id);
             // Optionally refresh the UI or switch to another workspace here
         }
     });
 
     // Handle workspace setting window
-    connect(m_sideBar, &SideBar::workspaceSettingsRequested, this, [this]() {
-        const QString activeId = m_stateController->context().activeWorkspaceId;
-        if (activeId.isEmpty())
+    connect(m_sideBar, &SideBar::workspaceSettingsRequested, this, [this](const QUuid& activeId) {
+        if (activeId.isNull())
             return;
 
         const Workspace ws = m_workspaceRepo->getWorkspaceById(activeId);
         WorkspaceSettingsWindow dlg(activeId, ws.name, m_workspaceRepo, this);
 
-        const QString titleName = ws.name.isEmpty() ? activeId : ws.name;
+        const QString titleName = ws.name.isEmpty() ? activeId.toString(QUuid::WithoutBraces) : ws.name;
         dlg.setWindowTitle(tr("Workspace Settings: \"%1\"").arg(titleName));
 
         dlg.exec(); // modal settings window

@@ -9,7 +9,12 @@
 #include <QObject>
 // Key info this is a facade for the networking side of this project
 
+class NetworkInterface : public QObject {
+    Q_OBJECT
 
+
+
+};
 
 
 

@@ -12,7 +12,7 @@ WorkspaceView::WorkspaceView(const Workspace& ws, QWidget* parent)
     layout->addWidget(label);
     
     // Placeholder for more workspace-specific content
-    auto* subLabel = new QLabel("ID: " + ws.id, this);
+    auto* subLabel = new QLabel("ID: " + ws.id.toString(QUuid::WithoutBraces), this);
     subLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(subLabel);
 }

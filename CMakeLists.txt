@@ -90,7 +90,11 @@ set (HEADER_FILES
         include/Data/helper/validater.h
         include/UI/components/Content_Windows/page/NetworkTestPage.h
         include/Data/networkInterface.h
-        include/Data/Networking/INetworkAuthService.h)
+        include/Data/Networking/INetworkAuthService.h
+        include/Data/Networking/ICloudSyncService.h
+        include/Data/Networking/ILanSyncService.h
+        include/Data/Networking/IAttachmentTransferService.h
+        include/UI/components/Content_Windows/page/loginPage.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 
@@ -106,6 +110,7 @@ target_link_libraries(taskHelper PRIVATE
         Qt6::QuickControls2
         Qt6::Core5Compat
         Qt6::Network
+
 )
 
 target_include_directories(taskHelper PRIVATE

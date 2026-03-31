@@ -7,7 +7,7 @@
 #pragma once
 #include <QDialog>
 #include <QListWidget>
-#include <QString>
+#include <QUuid>
 
 #include "helpers/Workspace.h"
 
@@ -17,15 +17,15 @@ class WorkspaceSwitchDialog : public QDialog
 public:
     explicit WorkspaceSwitchDialog(
         const QList<Workspace>& workspaces,
-        const QString& activeWorkspaceId,
+        const QUuid& activeWorkspaceId,
         QWidget* parent = nullptr
     );
 
-    [[nodiscard]] QString selectedWorkspaceId() const;
+    [[nodiscard]] QUuid selectedWorkspaceId() const;
 
 private:
     QListWidget* list_;
-    QString selectedId_;
+    QUuid selectedId_;
 };
 
 

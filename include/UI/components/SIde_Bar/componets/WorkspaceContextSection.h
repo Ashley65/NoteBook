@@ -8,6 +8,7 @@
 #include <QWidget>
 #include <QPushButton>
 #include <QToolButton>
+#include <QUuid>
 
 #include "helpers/AppStateController.h"
 #include "helpers/Workspace.h"
@@ -25,10 +26,10 @@ protected:
     void changeEvent(QEvent *event) override;
 
 signals:
-    void workspaceChanged(const QString& workspaceId);
+    void workspaceChanged(const QUuid& workspaceId);
     void requestWorkspaceSwitch();
     void requestWorkspaceCreate();
-    void requestWorkspaceSettings(const QString& workspaceId);
+    void requestWorkspaceSettings(const QUuid& workspaceId);
 
 
 
@@ -41,7 +42,7 @@ private slots:
 private:
     QToolButton* mainBtn;
     QString currentWorkspace_ = "TEST workspace";
-    QString currentWorkspaceID_;
+    QUuid currentWorkspaceID_;
     QString currentWorkspaceName_;
     void updateStyle(bool compact);
 };

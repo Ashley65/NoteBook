@@ -12,7 +12,7 @@
 
 
 // The main idea is that when the user want to change some setting in the workspace, they click the setting button a and popup wind for the current workspace will appear
-WorkspaceSettingsWindow::WorkspaceSettingsWindow(const QString& workspaceId,const QString& workspaceName,WorkspaceRepository* repository,QWidget* parent)
+WorkspaceSettingsWindow::WorkspaceSettingsWindow(const QUuid& workspaceId,const QString& workspaceName,WorkspaceRepository* repository,QWidget* parent)
 :QDialog(parent), m_workspaceId(workspaceId), m_workspaceName(workspaceName), m_repository(repository)
 {
     // Set the window title

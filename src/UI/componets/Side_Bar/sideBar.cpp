@@ -8,6 +8,9 @@
 #include <QDebug>
 #include <QMenu>
 #include <QCursor>
+#include <QPalette>
+#include <QApplication>
+
 
 SideBar::SideBar(QWidget* parent)
     : QFrame(parent)
@@ -84,6 +87,61 @@ void SideBar::applyMode() {
     }
 }
 
+void SideBar::updateWorkspaceMenuStyle() {
+     if (!m_workspaceMenu) return;
+
+    const QColor win = qApp->palette().window().color();
+    const bool darkMode = win.lightness() < 128;
+
+
+    const QString css = darkMode ?
+        R"(
+            QMenu {
+                background-color: #2B3038;
+                border: 1px solid #444C58;
+                border-radius: 8px;
+                padding: 4px;
+            }
+            QMenu::item {
+                color: #D0D5DD;
+                padding: 7px 12px;
+                border-radius: 6px;
+            }
+            QMenu::item:selected {
+                background-color: #3C4655;
+                color: #FFFFFF;
+            }
+            QMenu::separator {
+                height: 1px;
+                margin: 4px 8px;
+                background: #444C58;
+            }
+
+        )"
+        : R"(
+            QMenu { background-color: #FFFFFF;
+                border: 1px solid #D9DDE3;
+                border-radius: 8px;
+                padding: 4px;
+            }
+            QMenu::item {
+                color: #1F2937;
+                padding: 7px 12px;
+                border-radius: 6px;
+            }
+            QMenu::item:selected {
+                background-color: #E8F0FE;
+                color: #0B57D0;
+            }
+            QMenu::separator {
+                height: 1px;
+                margin: 4px 8px;
+                background: #E5E7EB;
+            }
+        )";
+    m_workspaceMenu->setStyleSheet(css);
+}
+
 void SideBar::showWorkspaceMenu() {
     if (!m_workspaceMenu) {
         m_workspaceMenu = new QMenu(this);
@@ -102,6 +160,7 @@ void SideBar::showWorkspaceMenu() {
         connect(settingsAction, &QAction::triggered, this, &SideBar::onWorkspaceSettings);
     }
 
+    updateWorkspaceMenuStyle();
     m_workspaceMenu->exec(QCursor::pos());
 }
 
@@ -122,5 +181,5 @@ void SideBar::onDeleteWorkspace() {
 
 void SideBar::onWorkspaceSettings() {
     qDebug() << "Workspace settings requested";
-    emit workspaceSettingsRequested();
+    emit workspaceSettingsRequested(m_workspaceId);
 }

@@ -9,7 +9,7 @@
 
 WorkspaceSwitchDialog::WorkspaceSwitchDialog(
     const QList<Workspace>& workspaces,
-    const QString& activeWorkspaceId,
+    const QUuid& activeWorkspaceId,
     QWidget* parent) : QDialog(parent)
 {
     setWindowTitle("Switch Workspace");
@@ -38,7 +38,7 @@ WorkspaceSwitchDialog::WorkspaceSwitchDialog(
 
     connect(buttons, &QDialogButtonBox::accepted, this, [this]() {
         if (auto* item = list_->currentItem()) {
-            selectedId_ = item->data(Qt::UserRole).toString();
+            selectedId_ = item->data(Qt::UserRole).toUuid();
         }
         accept();
     });
@@ -47,7 +47,7 @@ WorkspaceSwitchDialog::WorkspaceSwitchDialog(
 }
 
 
-QString WorkspaceSwitchDialog::selectedWorkspaceId() const
+QUuid WorkspaceSwitchDialog::selectedWorkspaceId() const
 {
     return selectedId_;
 }

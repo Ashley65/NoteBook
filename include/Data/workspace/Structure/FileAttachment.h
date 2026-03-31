@@ -13,6 +13,7 @@ struct FileAttachment
 {
     QUuid id;
     QUuid workspaceId;
+    QUuid projectId;
     QUuid noteId;      // optional (nullable)
 
     QString fileName;
