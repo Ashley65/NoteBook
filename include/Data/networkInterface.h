@@ -7,6 +7,8 @@
 #pragma once
 
 #include <QObject>
+// Key info this is a facade for the networking side of this project
+
 
 
 
