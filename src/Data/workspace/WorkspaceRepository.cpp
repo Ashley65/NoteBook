@@ -13,6 +13,8 @@ WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
     ensureProjectStructure();
 }
 
+
+
 QList<Workspace> WorkspaceRepository::workspaces() const {
     return workspaces_;
 }
