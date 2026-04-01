@@ -93,7 +93,21 @@ private:
     void saveAttachments();
     void loadAttachments();
     void ensureProjectStructure();
-    QUuid defaultProjectForWorkspace(const QUuid& workspaceId) const;
+    [[nodiscard]] QUuid defaultProjectForWorkspace(const QUuid& workspaceId) const;
+
+    static QString uuidKey (const QUuid& id) { return id.toString(QUuid::WithoutBraces);}
+
+    [[nodiscard]] QString dataRootPath() const;
+
+    [[nodiscard]] QString projectPath(const QUuid& workspaceId, const QUuid& projectId) const;
+
+    [[nodiscard]] bool ensureProjectDir(const QUuid& workspaceId, const QUuid& projectId) const;
+
+    // File-based persistence helpers
+    void saveNoteToFile(const Note& note) const;
+    void removeNoteFromFile(const Note& note) const;
+    QString storeAttachmentFile(const FileAttachment& attachment) const;
+    void removeAttachmentFile(const FileAttachment& attachment) const;
 
 
 };

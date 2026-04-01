@@ -1,6 +1,10 @@
 #include "Data/workspace/WorkspaceRepository.h"
 #include <QUuid>
 #include <QSettings>
+#include <QStandardPaths>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 
 WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
 {
@@ -127,6 +131,10 @@ QUuid WorkspaceRepository::createProject(const Project& project) {
 
     projects_.append(newProject);
     saveProjects();
+
+    // LINK: Ensure on-disk project directory structure is created
+    ensureProjectDir(newProject.workspaceId, newProject.id);
+
     emit projectAdded(newProject);
     return newProject.id;
 }
@@ -144,8 +152,10 @@ void WorkspaceRepository::updateProject(const Project& project) {
 }
 
 void WorkspaceRepository::deleteProject(const QUuid& id) {
+    QUuid workspaceId;
     for (int i = 0; i < projects_.size(); ++i) {
         if (projects_[i].id == id) {
+            workspaceId = projects_[i].workspaceId;
             projects_.removeAt(i);
             break;
         }
@@ -173,6 +183,13 @@ void WorkspaceRepository::deleteProject(const QUuid& id) {
     saveTasks();
     saveNotes();
     saveAttachments();
+
+    // LINK: Remove project directory from disk
+    if (!workspaceId.isNull()) {
+        QDir projectDir(projectPath(workspaceId, id));
+        projectDir.removeRecursively();
+    }
+
     emit projectDeleted(id);
 }
 
@@ -216,6 +233,9 @@ QUuid WorkspaceRepository::createNote(const Note& note) {
     notes_.append(newNote);
     saveNotes();
 
+    // LINK: Persist note content to disk
+    saveNoteToFile(newNote);
+
     emit noteAdded(newNote);
     return newNote.id;
 }
@@ -226,6 +246,10 @@ void WorkspaceRepository::updateNote(const Note& note) {
             notes_[i] = note;
             notes_[i].updatedAt = QDateTime::currentDateTime();
             saveNotes();
+
+            // LINK: Update note content on disk
+            saveNoteToFile(notes_[i]);
+
             emit noteUpdated(notes_[i]);
             return;
         }
@@ -235,16 +259,21 @@ void WorkspaceRepository::updateNote(const Note& note) {
 void WorkspaceRepository::deleteNote(const QUuid& id) {
     for (int i = 0; i < notes_.size(); ++i) {
         if (notes_[i].id == id) {
+            const Note deletingNote = notes_[i];
             notes_.removeAt(i);
 
             // Cascade delete attachments
             for (int j = attachments_.size() - 1; j >= 0; --j) {
                 if (attachments_[j].noteId == id) {
-                    attachments_.removeAt(j);
+                    deleteAttachment(attachments_[j].id);
                 }
             }
             saveAttachments();
             saveNotes();
+
+            // LINK: Remove note file from disk
+            removeNoteFromFile(deletingNote);
+
             emit noteDeleted(id);
             return;
         }
@@ -297,6 +326,12 @@ QUuid WorkspaceRepository::createAttachment(const FileAttachment& attachment) {
     }
     newAtt.createdAt = QDateTime::currentDateTime();
 
+    // LINK: Store file in project attachment directory
+    QString storedFilePath = storeAttachmentFile(newAtt);
+    if (!storedFilePath.isEmpty()) {
+        newAtt.filePath = storedFilePath;
+    }
+
     attachments_.append(newAtt);
     saveAttachments();
 
@@ -307,8 +342,13 @@ QUuid WorkspaceRepository::createAttachment(const FileAttachment& attachment) {
 void WorkspaceRepository::deleteAttachment(const QUuid& id) {
     for (int i = 0; i < attachments_.size(); ++i) {
         if (attachments_[i].id == id) {
+            const FileAttachment deletingAtt = attachments_[i];
             attachments_.removeAt(i);
             saveAttachments();
+
+            // LINK: Remove attachment file from disk
+            removeAttachmentFile(deletingAtt);
+
             emit attachmentDeleted(id);
             return;
         }
@@ -672,6 +712,9 @@ void WorkspaceRepository::ensureProjectStructure()
             project.updatedAt = project.createdAt;
             projects_.append(project);
             projectsChanged = true;
+
+            // LINK: Ensure on-disk directory structure for new default project
+            ensureProjectDir(ws.id, project.id);
         }
     }
 
@@ -712,6 +755,83 @@ QUuid WorkspaceRepository::defaultProjectForWorkspace(const QUuid& workspaceId) 
     return {};
 }
 
+QString WorkspaceRepository::dataRootPath() const {
+    const QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    return QDir(base).filePath("TaskHelperData/workspace");
+}
 
+QString WorkspaceRepository::projectPath(const QUuid &workspaceId, const QUuid &projectId) const {
+    QDir root(dataRootPath());
+    return root.filePath(uuidKey(workspaceId) + "/projects/" + uuidKey(projectId));
+}
 
+bool WorkspaceRepository::ensureProjectDir(const QUuid &workspaceId, const QUuid &projectId) const {
+    QDir d(projectPath(workspaceId, projectId));
+    return d.mkpath(".") && d.mkpath("tasks") && d.mkpath("notes") && d.mkpath("attachments");
+
+}
+
+void WorkspaceRepository::saveNoteToFile(const Note& note) const {
+    // LINK: Save note content to disk as markdown file
+    QString notePath = QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes");
+    QString noteFile = QDir(notePath).filePath(uuidKey(note.id) + ".md");
+
+    QFile file(noteFile);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        file.write(note.content.toUtf8());
+        file.close();
+    }
+}
+
+void WorkspaceRepository::removeNoteFromFile(const Note& note) const {
+    // LINK: Remove note file from disk
+    QString notePath = QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes");
+    QString noteFile = QDir(notePath).filePath(uuidKey(note.id) + ".md");
+
+    QFile::remove(noteFile);
+}
+
+QString WorkspaceRepository::storeAttachmentFile(const FileAttachment& attachment) const {
+    // LINK: Copy/move attachment file to project attachment storage
+    if (attachment.filePath.isEmpty()) {
+        return "";
+    }
+
+    QFileInfo sourceInfo(attachment.filePath);
+    if (!sourceInfo.exists()) {
+        return "";
+    }
+
+    // Create stored path: <project>/attachments/<attachmentUuid>/<originalFileName>
+    QString attStorePath = QDir(projectPath(attachment.workspaceId, attachment.projectId))
+        .filePath("attachments/" + uuidKey(attachment.id));
+
+    QDir attStoreDir(attStorePath);
+    if (!attStoreDir.mkpath(".")) {
+        return "";
+    }
+
+    QString storedFile = QDir(attStorePath).filePath(sourceInfo.fileName());
+
+    // Copy file to storage location
+    if (QFile::copy(attachment.filePath, storedFile)) {
+        return storedFile;
+    }
+
+    return "";
+}
+
+void WorkspaceRepository::removeAttachmentFile(const FileAttachment& attachment) const {
+    // LINK: Remove attachment file and folder from disk
+    if (attachment.filePath.isEmpty()) {
+        return;
+    }
+
+    QFile::remove(attachment.filePath);
+
+    // Also try to remove the attachment folder if empty
+    QString attFolderPath = QDir(projectPath(attachment.workspaceId, attachment.projectId))
+        .filePath("attachments/" + uuidKey(attachment.id));
+    QDir(attFolderPath).removeRecursively();
+}
 
