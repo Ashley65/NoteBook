@@ -12,7 +12,19 @@
 #include "Structure/Note.h"
 #include "Structure/FileAttachment.h"
 
+struct OrphanedFileInfo {
+    QString filePath;
+    QString fileName;
+    QString Type ;
+    QDateTime lastModified;
+    qint64 fileSize;
+};
 
+struct OrphanedFileReport {
+    QList<OrphanedFileInfo> orphanedFiles;
+    qint64 totalSize;
+    int totalFiles;
+};
 
 class WorkspaceRepository : public QObject
 {
@@ -58,6 +70,13 @@ public:
     [[nodiscard]] FileAttachment getAttachmentById(const QUuid& id) const;
     QUuid createAttachment(const FileAttachment& attachment);
     void deleteAttachment(const QUuid& id);
+
+    [[nodiscard]] OrphanedFileReport scanForOrphanedFiles() const;
+    void deleteOrphanedFiles(const QList<QString>& filePaths);
+    void deleteOrphanedFile(const QString& filePath);
+    void deleteAllOrphanedFiles();
+
+
 
 signals:
     void workspaceAdded(const Workspace& ws);

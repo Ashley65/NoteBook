@@ -355,6 +355,8 @@ void WorkspaceRepository::deleteAttachment(const QUuid& id) {
     }
 }
 
+
+
 // Task Management Methods
 QList<Task> WorkspaceRepository::getTasksByWorkspace(const QUuid& workspaceId) const {
     QList<Task> result;
@@ -835,6 +837,31 @@ void WorkspaceRepository::removeAttachmentFile(const FileAttachment& attachment)
     QDir(attFolderPath).removeRecursively();
 }
 
+OrphanedFileReport WorkspaceRepository::scanForOrphanedFiles() const {
+    OrphanedFileReport report;
+
+    report.totalSize = 0;
+    report.totalFiles = 0;
+
+    // Scan directories for notes and at
+    for (const auto& ws : workspaces_) {
+        for (const auto& project : getProjectsByWorkspace(ws.id)) {
+
+        }
+    }
+
+}
+
+void WorkspaceRepository::deleteOrphanedFiles(const QList<QString> &filePaths) {
+}
+
+void WorkspaceRepository::deleteOrphanedFile(const QString &filePath) {
+}
+
+void WorkspaceRepository::deleteAllOrphanedFiles() {
+}
+
+
 void WorkspaceRepository::cleanUpOrphanedData()
 {
     for (const auto& workspace : workspaces_)
@@ -847,6 +874,16 @@ void WorkspaceRepository::cleanUpOrphanedData()
             QStringList filters;
             filters << "*.md";
 
+            QStringList files = notesDir.entryList(filters, QDir::Files);
+            for (const auto& file : files)
+            {
+                QString filePath = notesDir.filePath(file);
+                QFileInfo fileInfo(filePath);
+                if (fileInfo.lastModified() < workspace.createdAt)
+                {
+                    QFile::remove(filePath);
+                }
+            }
         }
     }
 }
