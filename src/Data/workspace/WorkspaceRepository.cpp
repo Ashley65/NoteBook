@@ -835,3 +835,19 @@ void WorkspaceRepository::removeAttachmentFile(const FileAttachment& attachment)
     QDir(attFolderPath).removeRecursively();
 }
 
+void WorkspaceRepository::cleanUpOrphanedData()
+{
+    for (const auto& workspace : workspaces_)
+    {
+        for (const auto& project : getProjectsByWorkspace(workspace.id))
+        {
+            QString notesDirPath = QDir(projectPath(workspace.id, project.id)).filePath("notes");
+            QDir notesDir(notesDirPath);
+
+            QStringList filters;
+            filters << "*.md";
+
+        }
+    }
+}
+

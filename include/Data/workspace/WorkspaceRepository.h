@@ -106,9 +106,10 @@ private:
     // File-based persistence helpers
     void saveNoteToFile(const Note& note) const;
     void removeNoteFromFile(const Note& note) const;
-    QString storeAttachmentFile(const FileAttachment& attachment) const;
+    [[nodiscard]] QString storeAttachmentFile(const FileAttachment& attachment) const;
     void removeAttachmentFile(const FileAttachment& attachment) const;
 
+    void cleanUpOrphanedData();
 
 };
 
