@@ -72,9 +72,14 @@ public:
     void deleteAttachment(const QUuid& id);
 
     [[nodiscard]] OrphanedFileReport scanForOrphanedFiles() const;
-    void deleteOrphanedFiles(const QList<QString>& filePaths);
-    void deleteOrphanedFile(const QString& filePath);
+    void scanOrphanedNotes(const QUuid& workspaceId, const QUuid& projectId, OrphanedFileReport& report)const;
+    void scanOrphanedAttachments(const QUuid& workspaceId, const QUuid& projectId, OrphanedFileReport& report) const;
+
+    static void deleteOrphanedFiles(const QList<QString>& filePaths);
+
+    static void deleteOrphanedFile(const QString& filePath);
     void deleteAllOrphanedFiles();
+    void cleanUpOrphanedDataForWorkspace(const QUuid& workspaceId);
 
 
 

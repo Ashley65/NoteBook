@@ -70,10 +70,10 @@ void WorkspaceRepository::deleteWorkspace(const QUuid& id)
         if (workspaces_[i].id == id) {
             workspaces_.removeAt(i);
 
-            // LINK: Persist changes immediately
+            // Persist changes immediately
             saveWorkspaces();
 
-            // LINK: Also remove all tasks associated with this workspace
+            // Also remove all tasks associated with this workspace
             for (int j = tasks_.size() - 1; j >= 0; --j) {
                 if (tasks_[j].workspaceId == id) {
                     tasks_.removeAt(j);
@@ -88,7 +88,7 @@ void WorkspaceRepository::deleteWorkspace(const QUuid& id)
             }
             saveProjects();
 
-            // LINK: Also remove all notes and their attachments associated with this workspace
+            // Also remove all notes and their attachments associated with this workspace
             for (int j = notes_.size() - 1; j >= 0; --j) {
                 if (notes_[j].workspaceId == id) {
                     deleteNote(notes_[j].id);
@@ -101,6 +101,7 @@ void WorkspaceRepository::deleteWorkspace(const QUuid& id)
                 }
             }
             saveAttachments();
+            cleanUpOrphanedDataForWorkspace(id);
             break;
         }
     }
@@ -846,45 +847,132 @@ OrphanedFileReport WorkspaceRepository::scanForOrphanedFiles() const {
     // Scan directories for notes and at
     for (const auto& ws : workspaces_) {
         for (const auto& project : getProjectsByWorkspace(ws.id)) {
+            scanOrphanedNotes(ws.id, project.id, report);
+            scanOrphanedAttachments(ws.id, project.id, report);
 
+        }
+    }
+    return report;
+}
+
+void WorkspaceRepository::scanOrphanedNotes(const QUuid &workspaceId, const QUuid &projectId,
+    OrphanedFileReport &report) const{
+    QString notesDirPath = QDir(projectPath(workspaceId, projectId)).filePath("notes");
+    QDir notesDir(notesDirPath);
+
+    if (!notesDir.exists()) return;
+
+    QStringList filters;
+    filters << "*.md";
+
+    QStringList files = notesDir.entryList(filters, QDir::Files);
+
+    for (const auto& file :files) {
+        QString filePath = notesDir.filePath(file);
+        QUuid noteId = QUuid::fromString(QFileInfo(file).completeBaseName());
+
+
+        bool noteExists = false;
+        for (const auto& note : notes_) {
+            if (note.id == noteId && note.projectId == projectId) {
+                noteExists = true;
+                break;
+            }
+        }
+
+        if (!noteExists) {
+            OrphanedFileInfo info;
+            info.filePath = filePath;
+            info.fileName = file;
+            info.Type = "note";
+            info.lastModified = QFileInfo(filePath).lastModified();
+            info.fileSize = QFileInfo(filePath).size();
+
+            report.orphanedFiles.append(info);
+            report.totalSize += info.fileSize;
+            report.totalFiles++;
+        }
+    }
+
+
+}
+
+void WorkspaceRepository::scanOrphanedAttachments(const QUuid &workspaceId, const QUuid &projectId,
+    OrphanedFileReport &report) const {
+    QString attDirPath = QDir(projectPath(workspaceId, projectId)).filePath("attachments");
+    QDir attDir(attDirPath);
+
+    if (!attDir.exists()) return;
+
+    QStringList folders = attDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
+
+    for (const auto& folder : folders) {
+        QUuid attachmentId = QUuid::fromString(folder);
+
+        bool attachmentExists = false;
+        for (const auto& att : attachments_) {
+            if (att.id == attachmentId && att.projectId == projectId) {
+                attachmentExists = true;
+                break;
+            }
+        }
+
+        if (!attachmentExists) {
+            QString folderPath = attDir.filePath(folder);
+            QDir folderDir(folderPath);
+            QStringList attFiles = folderDir.entryList(QDir::Files);
+
+            for (const auto& attFile : attFiles) {
+                QString filePath = folderDir.filePath(attFile);
+
+                OrphanedFileInfo info;
+                info.filePath = filePath;
+                info.fileName = attFile;
+                info.Type = "attachment";
+                info.lastModified = QFileInfo(filePath).lastModified();
+                info.fileSize = QFileInfo(filePath).size();
+
+                report.orphanedFiles.append(info);
+                report.totalSize += info.fileSize;
+                report.totalFiles++;
+            }
         }
     }
 
 }
 
 void WorkspaceRepository::deleteOrphanedFiles(const QList<QString> &filePaths) {
+   for (const auto& filePath : filePaths) {
+       deleteOrphanedFile(filePath);
+   }
 }
 
 void WorkspaceRepository::deleteOrphanedFile(const QString &filePath) {
+    QFile::remove(filePath);
+
+    QDir parentDir = QFileInfo(filePath).dir();
+    if (parentDir.entryList(QDir::Files).isEmpty()) {
+        parentDir.removeRecursively();
+    }
 }
 
 void WorkspaceRepository::deleteAllOrphanedFiles() {
+    OrphanedFileReport report = scanForOrphanedFiles();
+    QList<QString> paths;
+    for (const auto& info : report.orphanedFiles) {
+        paths.append(info.filePath);
+    }
+    deleteOrphanedFiles(paths);
+}
+
+void WorkspaceRepository::cleanUpOrphanedDataForWorkspace(const QUuid &workspaceId) {
+    QDir workspaceDir(QDir(dataRootPath()).filePath(uuidKey(workspaceId)));
+    workspaceDir.removeRecursively();
 }
 
 
 void WorkspaceRepository::cleanUpOrphanedData()
 {
-    for (const auto& workspace : workspaces_)
-    {
-        for (const auto& project : getProjectsByWorkspace(workspace.id))
-        {
-            QString notesDirPath = QDir(projectPath(workspace.id, project.id)).filePath("notes");
-            QDir notesDir(notesDirPath);
-
-            QStringList filters;
-            filters << "*.md";
-
-            QStringList files = notesDir.entryList(filters, QDir::Files);
-            for (const auto& file : files)
-            {
-                QString filePath = notesDir.filePath(file);
-                QFileInfo fileInfo(filePath);
-                if (fileInfo.lastModified() < workspace.createdAt)
-                {
-                    QFile::remove(filePath);
-                }
-            }
-        }
-    }
+    deleteAllOrphanedFiles();
 }
 

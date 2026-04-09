@@ -10,10 +10,12 @@ if (WIN32)
     set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
 endif ()
 if (APPLE)
-    set(CMAKE_PREFIX_PATH "/Users/funb/Qt/6.11.0/macos")
-
+    if (DEFINED ENV{QT_PATH})
+        set(CMAKE_PREFIX_PATH "$ENV{QT_PATH}")
+    else()
+        set(CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
+    endif()
 endif ()
-
 
 
 find_package(Qt6 COMPONENTS
