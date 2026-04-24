@@ -54,7 +54,11 @@ set (SOURCE_FILES
         src/Data/workspace/WorkspaceCreateDialog.cpp
         src/Data/workspace/WorkspaceDeleteDialog.cpp
         src/Data/workspace/WorkspaceSettingsWindow.cpp
-        src/UI/componets/Content_Windows/Page/NetworkTestPage.cpp)
+        src/UI/componets/Content_Windows/Page/NetworkTestPage.cpp
+        src/Data/workspace/Manager/TaskManager.cpp
+        src/Data/workspace/Manager/NoteManager.cpp
+        src/UI/componets/Content_Windows/Page/wsHomePage.cpp
+        src/Data/Project/ProjectCreateDialog.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -96,7 +100,12 @@ set (HEADER_FILES
         include/Data/Networking/ICloudSyncService.h
         include/Data/Networking/ILanSyncService.h
         include/Data/Networking/IAttachmentTransferService.h
-        include/UI/components/Content_Windows/page/loginPage.h)
+        include/UI/components/Content_Windows/page/loginPage.h
+        include/UI/components/Content_Windows/page/wsHomePage.h
+        include/Data/workspace/Manager/TaskManager.h
+        include/Data/workspace/Manager/NoteManager.h
+        include/Data/Networking/SyncManager.h
+        include/Data/Project/ProjectCreateDialog.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 

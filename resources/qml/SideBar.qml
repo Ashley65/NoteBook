@@ -10,6 +10,7 @@ Rectangle {
 
     // Logic Properties
     readonly property bool isCompact: sideBar.isCompact
+    readonly property string activeProjectIdString: sideBar.activeProjectId.toString().replace(/[{}]/g, "").toLowerCase()
 
     // Debug output
     Component.onCompleted: {
@@ -69,37 +70,62 @@ Rectangle {
             ScrollBar.vertical.policy: ScrollBar.AsNeeded
 
             Column { // CHANGED from ColumnLayout to Column
-                width: sidebarRoot.width - 20 // Explicit width based on sidebar width
+                width: sidebarRoot.width - 20
                 spacing: 20
 
                 // PROJECTS GROUP
                 SidebarSection {
-                    width: parent.width // ADDED explicit width
+                    width: parent.width
                     title: "Projects"
                     compact: sidebarRoot.isCompact
 
-                    // Example Data
-                    model: ListModel {
-                        ListElement { name: "System Design"; colorCode: "#FFD700"; icon: "" } // Gold
-                        ListElement { name: "Fitness Plan"; colorCode: "#9ACD32"; icon: "" }  // Green
-                        ListElement { name: "Dissertation"; colorCode: "#20B2AA"; icon: "" }  // Teal
-                        ListElement { name: "Task Monitoring App"; colorCode: "#FF69B4"; icon: "" } // Pink
+                    model: sideBar.projects
+                    //isActive: modelData.id === sideBar.activeProjectId.toString().replace(/[{}]/g, "")
+
+                    Button {
+
+                        id: btnNewProject
+                        text: "+ New Project"
+                        hoverEnabled: true
+
+                        visible: !sidebarRoot.isCompact
+                        enabled: visible
+                        Layout.fillWidth: true
+                        Layout.preferredHeight: visible ? implicitHeight : 0
+                        Layout.maximumHeight: visible ? implicitHeight : 0
+
+                        background: Rectangle {
+                            color: btnNewProject.hovered ? "#1a1f2e" : "transparent"
+                            radius: 6
+
+                            Behavior on color { ColorAnimation { duration: 150 } }
+                        }
+                        contentItem: Text {
+                            text: parent.text
+                            color: btnNewProject.hovered ? "#9bb8ff" : "#7aa2f7"
+                            font.pixelSize: 14
+                            font.weight: Font.Medium
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        onClicked: sideBar.onAddProject()
                     }
 
                     delegate: SidebarItem {
-                        width: sidebarRoot.width - 20 // FORCE width for delegate
-                        text: model.name || ""
+                        width: sidebarRoot.width - 20
+                        text: modelData.name || ""
+                        isSelected: (modelData.id || "").toLowerCase() === sidebarRoot.activeProjectIdString
                         useAvatar: true
-                        avatarColor: model.colorCode || "transparent"
-                        avatarText: (model.name || "").substring(0, 2).toUpperCase()
+                        avatarColor: modelData.colorCode || "transparent"
+                        avatarText: (modelData.name || "").substring(0, 2).toUpperCase()
                         compact: sidebarRoot.isCompact
-                        onClicked: sideBar.onItemClicked("project", model.name || "")
+                        onClicked: sideBar.onItemClicked("project", modelData.id || "")
                     }
                 }
 
                 // FILTERS GROUP
                 SidebarSection {
-                    width: parent.width // ADDED explicit width
+                    width: parent.width
                     title: "Filters"
                     compact: sidebarRoot.isCompact
 
@@ -187,15 +213,14 @@ Rectangle {
         // ADD THIS LINE: Explicit fallback to fix QML alias layout bug
         width: parent ? parent.width : 0
 
-        color: isSelected ? "#1f2335" : "transparent" // Selection background
+        color: isSelected ? "#1f2335" : (hoverArea.containsMouse ? "#16161e" : "transparent")
         radius: 6
 
         // Hover effect
         MouseArea {
+            id: hoverArea
             anchors.fill: parent
             hoverEnabled: true
-            onEntered: parent.color = isSelected ? "#1f2335" : "#16161e"
-            onExited: parent.color = isSelected ? "#1f2335" : "transparent"
             onClicked: parent.clicked()
         }
 

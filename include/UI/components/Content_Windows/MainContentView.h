@@ -14,16 +14,20 @@
 #include <QHash>
 #include <QUuid>
 #include "IWorkspaceView.h"
+#include "Data/workspace/WorkspaceRepository.h"
 
 class MainContentView : public QStackedWidget
 {
     Q_OBJECT
 public:
-    explicit MainContentView(QWidget* parent = nullptr);
+    explicit MainContentView(WorkspaceRepository* repo, QWidget* parent = nullptr);
     void setActiveWorkspace(const Workspace& ws);
     void setActiveWorkspace(const AppContext& ctx);
+    void setActiveProject(const Project& project);
 
 private:
     QHash<QUuid, IWorkspaceView*> views_;
+    WorkspaceRepository* m_repo {nullptr};
+    Project m_activeProject;
 };
 #endif //TASKHELPER_MAINCONTENTVIEW_H

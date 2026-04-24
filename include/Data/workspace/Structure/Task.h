@@ -31,9 +31,11 @@ struct Task
     QUuid id;
     QUuid workspaceId;
     QUuid projectId;
+
     QString title;
     QString description;
     TaskStatus status;
+
     TaskPriority priority;
     QDateTime createdAt;
     QDateTime dueDate;

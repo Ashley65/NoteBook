@@ -141,10 +141,7 @@ void WorkspaceCreateDialog::ValidateName(const QString& name)
     }
 }
 
-void WorkspaceCreateDialog::SaveCreatedWorkspace()
-{
-    // This function will be called after the press of the "Ok" button to save the workspace to the repository
-}
+
 
 void WorkspaceCreateDialog::handleAccept()
 {

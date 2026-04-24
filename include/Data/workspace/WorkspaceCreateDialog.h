@@ -25,9 +25,8 @@ public:
 
 private slots:
     // This slot will be connected to the textChanged signal of the QLineEdit to validate the input in real-time as the user types.
-    void validateInput(const QString& text);
+    void validateInput(const QString& text); // This will need to be changed
     void ValidateName(const QString& name);
-    void SaveCreatedWorkspace();
     void handleAccept();
 
 private:

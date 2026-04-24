@@ -39,8 +39,12 @@ SideBar::SideBar(QWidget* parent)
 
 void SideBar::setMode(Mode m) {
     if (m_mode == m) return;
+    const bool wasCompact = (m_mode == Mode::Compact);
     m_mode = m;
-    emit compactChanged();
+    const bool isCompactNow = (m_mode == Mode::Compact);
+    if (wasCompact != isCompactNow) {
+        emit compactChanged();
+    }
     applyMode();
 }
 
@@ -50,13 +54,26 @@ void SideBar::setWorkspaceName(const QString& name) {
     emit workspaceNameChanged();
 }
 
+void SideBar::setProjects(const QVariantList& projects)
+{
+    if (m_projects == projects) return;
+    m_projects = projects;
+    emit projectsChanged();
+}
+
 void SideBar::onItemClicked(const QString& type, const QString& id) {
     qDebug() << "Item clicked:" << type << id;
     if (type == "core") {
         // Emit appropriate signal based on name/id
         emit coreItemSelected(0); // Example mapping
     } else if (type == "project") {
-        emit projectSelected(id.toInt());
+        const QUuid projectId(id);
+        if (projectId.isNull()) {
+            qWarning() << "Invalid project UUID:" << id;
+            return;
+        }
+        setActiveProjectId(projectId);
+        emit projectSelected(projectId);
     } else if (type == "filter") {
         emit filterSelected(id.toInt());
     }
@@ -67,9 +84,28 @@ void SideBar::onPrimaryClicked() {
 }
 
 void SideBar::onToggleMode() {
-    if (m_mode == Mode::Default) setMode(Mode::Compact);
-    else if (m_mode == Mode::Compact) setMode(Mode::Hidden);
-    else setMode(Mode::Default);
+    // Keep footer toggle reachable: cycle only between Default and Compact.
+    if (m_mode == Mode::Compact) {
+        setMode(Mode::Default);
+    } else {
+        setMode(Mode::Compact);
+    }
+}
+
+void SideBar::onAddProject()
+{
+    emit projectCreateRequested();
+}
+
+void SideBar::onSwitchProject(const QUuid& projectId)
+{
+    const QUuid id(projectId);
+    if (id.isNull()) {
+        qWarning() << "Invalid project UUID:" << projectId;
+        return;
+    }
+    setActiveProjectId(id);
+    emit projectSelected(id);
 }
 
 void SideBar::applyMode() {

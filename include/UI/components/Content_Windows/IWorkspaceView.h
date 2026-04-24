@@ -8,6 +8,7 @@
 
 #include <QWidget>
 #include "helpers/Workspace.h"
+#include "Data/workspace/Structure/Project.h"
 
 
 class IWorkspaceView : public QWidget
@@ -15,11 +16,12 @@ class IWorkspaceView : public QWidget
     Q_OBJECT
 public:
     explicit IWorkspaceView(const Workspace& ws, QWidget* parent = nullptr) : QWidget(parent) {}
-    virtual ~IWorkspaceView() override = default;
+    ~IWorkspaceView() override = default;
 
     // API for interacting with the workspace view
-    virtual void refresh() = 0; // Refresh the view with current workspace data#
+    virtual void refresh() = 0; // Refresh the view with current workspace data
     virtual void updateWorkspace(const Workspace& ws) = 0; // Update the view with new workspace data
+    virtual void setActiveProject(const Project& project) { (void)project; }
 };
 
 #endif //TASKHELPER_IWORKSPACEVIEW_H

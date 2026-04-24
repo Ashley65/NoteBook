@@ -511,7 +511,7 @@ void WorkspaceRepository::loadWorkspaces()
 
 void WorkspaceRepository::saveProjects()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     s.beginWriteArray("projects");
 
     for (int i = 0; i < projects_.size(); ++i) {
@@ -531,7 +531,7 @@ void WorkspaceRepository::saveProjects()
 
 void WorkspaceRepository::loadProjects()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     int count = s.beginReadArray("projects");
 
     projects_.clear();
@@ -554,7 +554,7 @@ void WorkspaceRepository::loadProjects()
 
 void WorkspaceRepository::saveTasks()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     s.beginWriteArray("tasks");
 
     for (int i = 0; i < tasks_.size(); ++i) {
@@ -577,7 +577,7 @@ void WorkspaceRepository::saveTasks()
 
 void WorkspaceRepository::loadTasks()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     int count = s.beginReadArray("tasks");
 
     // clear existing list to prevent duplicates
@@ -600,11 +600,12 @@ void WorkspaceRepository::loadTasks()
     }
 
     s.endArray();
+    s.sync();
 }
 
 void WorkspaceRepository::saveNotes()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     s.beginWriteArray("notes");
 
     for (int i = 0; i < notes_.size(); ++i) {
@@ -622,11 +623,12 @@ void WorkspaceRepository::saveNotes()
     }
 
     s.endArray();
+    s.sync();
 }
 
 void WorkspaceRepository::loadNotes()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     int count = s.beginReadArray("notes");
 
     notes_.clear();
@@ -648,11 +650,12 @@ void WorkspaceRepository::loadNotes()
     }
 
     s.endArray();
+    s.sync();
 }
 
 void WorkspaceRepository::saveAttachments()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     s.beginWriteArray("attachments");
 
     for (int i = 0; i < attachments_.size(); ++i) {
@@ -669,11 +672,12 @@ void WorkspaceRepository::saveAttachments()
     }
 
     s.endArray();
+    s.sync();
 }
 
 void WorkspaceRepository::loadAttachments()
 {
-    QSettings s;
+    QSettings s("data.ini", QSettings::IniFormat);
     int count = s.beginReadArray("attachments");
 
     attachments_.clear();
@@ -694,6 +698,7 @@ void WorkspaceRepository::loadAttachments()
     }
 
     s.endArray();
+    s.sync();
 }
 
 void WorkspaceRepository::ensureProjectStructure()

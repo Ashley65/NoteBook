@@ -8,7 +8,9 @@
 #include <QPushButton>
 #include <QShowEvent>
 #include <QTimer>
+#include <QVariantMap>
 #include <QWidget>
+#include <QStringList>
 #include <UI/mainWIndow.h>
 #include <UI/components/SIde_Bar/sideBar.h>
 
@@ -16,6 +18,7 @@
 #include "Data/workspace/WorkspaceDeleteDialog.h"
 #include "Data/workspace/WorkspaceSettingsWindow.h"
 #include "Data/workspace/WorkspaceSwitchDialog.h"
+#include "Data/Project/ProjectCreateDialog.h"
 
 #include "UI/components/SIde_Bar/componets/WorkspaceContextSection.h"
 
@@ -227,7 +230,7 @@ MainWindow::MainWindow(QWidget* parent)
     // 4. CONTENT WINDOW (.Content_window)
     // ============================================================
     // CSS: grid-area: 2 / 2 / 4 / 6; (Row 1, Col 1, Span 2, Span 4)
-    m_mainContent = new MainContentView(this);
+    m_mainContent = new MainContentView(m_workspaceRepo, this);
     mainLayout->addWidget(m_mainContent, 1, 1, 2, 2);
 
     // Ensure at least one workspace exists and set it active
@@ -455,6 +458,32 @@ void MainWindow::setupSidebarConnections()
 {
     if (!m_sideBar || !m_stateController || !m_workspaceRepo) return;
 
+    const auto refreshSidebarProjects = [this]() {
+        const QUuid workspaceId = m_stateController->context().activeWorkspaceId;
+        QVariantList projectItems;
+
+        if (!workspaceId.isNull()) {
+            const QList<Project> projects = m_workspaceRepo->getProjectsByWorkspace(workspaceId);
+            static const QStringList palette = {
+                "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65", "#81C784"
+            };
+
+            for (const Project& project : projects) {
+                if (project.isArchived) {
+                    continue;
+                }
+
+                QVariantMap item;
+                item.insert("id", project.id.toString(QUuid::WithoutBraces));
+                item.insert("name", project.name);
+                item.insert("colorCode", palette.at(qAbs(qHash(project.id.toString())) % palette.size()));
+                projectItems.append(item);
+            }
+        }
+
+        m_sideBar->setProjects(projectItems);
+    };
+
     // React to State Changes
     connect(m_stateController, &AppStateController::activeWorkspaceChanged,
             this, [this]() {
@@ -467,6 +496,7 @@ void MainWindow::setupSidebarConnections()
         if (m_sideBar) {
             m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
             m_sideBar->setWorkspaceId(ctx.activeWorkspaceId);
+            m_sideBar->setActiveProjectId(QUuid());
         }
         if (ctx.activeWorkspaceId.isNull()) {
             return;
@@ -479,6 +509,11 @@ void MainWindow::setupSidebarConnections()
         }
 
         // Fallback for stale ids that may exist in persisted AppStateController settings.
+    });
+
+    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
+            this, [refreshSidebarProjects]() {
+        refreshSidebarProjects();
     });
 
     connect(m_stateController, &AppStateController::activeWorkspaceChanged,
@@ -531,15 +566,72 @@ void MainWindow::setupSidebarConnections()
     connect(m_sideBar, &SideBar::workspaceCreateRequested, this, [this]() {
         WorkspaceCreateDialog dlg(this, m_workspaceRepo);
         if (dlg.exec() == QDialog::Accepted) {
-            QString newName = dlg.workspaceName();
-            QString type = dlg.workspaceType();
-            QString description = dlg.workspaceDescription();
-            if (!newName.isEmpty()) {
-                m_workspaceRepo->createWorkspace(newName, type, description);
-                // Optionally refresh the UI or switch to the new workspace here
+            const QString newName = dlg.workspaceName().trimmed();
+            const QString type = dlg.workspaceType();
+            const QString description = dlg.workspaceDescription();
+
+            if (newName.isEmpty()) return;
+
+            const QUuid newId = m_workspaceRepo->createWorkspace(newName, type, description);
+            if (!newId.isNull()) {
+                m_stateController->setActiveWorkspace(newId, newName);
             }
         }
     });
+
+    connect(m_sideBar, &SideBar::projectCreateRequested, this, [this]() {
+        const QUuid activeWorkspaceId = m_stateController->context().activeWorkspaceId;
+        if (activeWorkspaceId.isNull()) {
+            return;
+        }
+
+        ProjectCreateDialog dlg(activeWorkspaceId, this, m_workspaceRepo);
+        if (dlg.exec() != QDialog::Accepted) {
+            return;
+        }
+
+        Project project;
+        project.workspaceId = activeWorkspaceId;
+        project.name = dlg.projectName();
+        project.description = dlg.projectDescription();
+        project.isArchived = false;
+
+        const QUuid newProjectId = m_workspaceRepo->createProject(project);
+        if (m_sideBar && !newProjectId.isNull()) {
+            m_sideBar->setActiveProjectId(newProjectId);
+        }
+    });
+
+    connect(m_sideBar, &SideBar::projectSelected, this, [this](const QUuid& projectId){
+
+        if (projectId.isNull() || !m_workspaceRepo)
+        {
+            return;
+        }
+
+        const Project project = m_workspaceRepo->getProjectById(projectId);
+        if (project.id.isNull())
+        {
+            return;
+        }
+
+        m_sideBar->setActiveProjectId(projectId);
+
+        m_mainContent->setActiveProject(project);
+
+        });
+
+    connect(m_workspaceRepo, &WorkspaceRepository::projectAdded, this, [refreshSidebarProjects](const Project&) {
+        refreshSidebarProjects();
+    });
+    connect(m_workspaceRepo, &WorkspaceRepository::projectUpdated, this, [refreshSidebarProjects](const Project&) {
+        refreshSidebarProjects();
+    });
+    connect(m_workspaceRepo, &WorkspaceRepository::projectDeleted, this, [refreshSidebarProjects](const QUuid&) {
+        refreshSidebarProjects();
+    });
+
+    refreshSidebarProjects();
 }
 void MainWindow::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);

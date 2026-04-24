@@ -1,0 +1,8 @@
+//
+// Created by DevAccount on 11/04/2026.
+//
+
+#ifndef TASKHELPER_SYNCMANAGER_H
+#define TASKHELPER_SYNCMANAGER_H
+
+#endif //TASKHELPER_SYNCMANAGER_H

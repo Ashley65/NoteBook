@@ -2,6 +2,10 @@
 <RCC>
     <qresource prefix="/">
         <file>qml/SideBar.qml</file>
+        <file>qml/wsHomePage/HeaderSection.qml</file>
+        <file>qml/wsHomeLinker.qml</file>
+        <file>qml/wsHomePage/RecentNotesColumn.qml</file>
+        <file>qml/wsHomePage/TaskFocusColumn.qml</file>
         <file>icons/search_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg</file>
         <file>icons/arrow_forward_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg</file>
         <file>icons/arrow_back_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24.svg</file>
