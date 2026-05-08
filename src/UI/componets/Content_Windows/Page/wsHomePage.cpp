@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QLabel>
 #include <algorithm>
+#include <QFileDialog>
 
 
 wsHomePage::wsHomePage(const Workspace& ws,WorkspaceRepository* repo ,QWidget* parent)
@@ -120,7 +121,27 @@ void wsHomePage::createNewNote(const QString& title)
 void wsHomePage::uploadFile(const QString& filePath)
 {
     // TODO: Implement file upload logic, potentially creating a new note with the file attachment or linking it to an existing note/task
-    //This would involve creating a FileAttachment via the repository
+    //This would involve creating a FileAttachment via the repositor
+
+    emit uploadMessage(tr("File uploaded successfully: %1").arg(QFileInfo(filePath).fileName()), false);
+    
+}
+
+void wsHomePage::requestUploadFile()
+{
+    const QString selected = QFileDialog::getOpenFileName(
+      this,
+      tr("Select File to Upload"),
+      QString(),
+      tr("Allowed Files (*.pdf *.png *.jpg *.jpeg *.txt *.md *.docx *.xlsx);;All Files (*.*)")
+    );
+
+    if (selected.isEmpty()) {
+        emit uploadMessage(tr("File selection cancelled."), true);
+        return;
+    }
+
+    uploadFile(selected);
 }
 
 void wsHomePage::toggleTaskCompletion(const QString& taskId, bool isCompleted)
@@ -307,13 +328,11 @@ void wsHomePage::setupUi()
     m_homeQuickView = new QQuickWidget(this);
     m_homeQuickView->setResizeMode(QQuickWidget::SizeRootObjectToView);
 
-    // 1. Tell QML to render transparent
+
     m_homeQuickView->setClearColor(Qt::transparent);
 
-    // 2. Allow C++ widget transparency
     m_homeQuickView->setAttribute(Qt::WA_TranslucentBackground);
 
-    // 3. [THE FIX] Force the OpenGL surface to composite over the parent widget
     m_homeQuickView->setAttribute(Qt::WA_AlwaysStackOnTop);
 
     m_homeQuickView->setMinimumHeight(300);

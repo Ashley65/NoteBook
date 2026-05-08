@@ -164,8 +164,13 @@ Item {
                 id: btnUploadFile
                 text: "📎  Upload File"
 
-                onClicked: console.log("Mock: Upload File Dialog Triggered")
-
+                onClicked: {
+                    if (typeof wsHomePage !== "undefined") {
+                        wsHomePage.requestUploadFile()
+                    } else {
+                        console.log("Mock: Upload File Dialog Triggered")
+                    }
+                }
                 contentItem: Text {
                     text: btnUploadFile.text
                     color: "#E2E8F0"

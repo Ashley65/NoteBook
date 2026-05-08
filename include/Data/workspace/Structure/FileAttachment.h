@@ -9,18 +9,28 @@
 #include <QDateTime>
 #include <QUuid>
 
+
+enum class AttachmentEntityType
+{
+    Task,
+    Note,
+    Workspace
+};
+
 struct FileAttachment
 {
     QUuid id;
     QUuid workspaceId;
     QUuid projectId;
-    QUuid noteId;      // optional (nullable)
+    AttachmentEntityType linkedEntityType = AttachmentEntityType::Workspace;
+    QUuid linkedEntityId;
 
     QString fileName;
-    QString filePath;
+    QString relativePath;
     QString mimeType;
-    qint64 fileSize;
+    qint64 fileSize = 0;
 
     QDateTime createdAt;
+    QDateTime updatedAt;
 };
 #endif //TASKHELPER_FILEATTACHMENT_H

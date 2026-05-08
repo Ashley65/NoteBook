@@ -133,7 +133,6 @@ QUuid WorkspaceRepository::createProject(const Project& project) {
     projects_.append(newProject);
     saveProjects();
 
-    // LINK: Ensure on-disk project directory structure is created
     ensureProjectDir(newProject.workspaceId, newProject.id);
 
     emit projectAdded(newProject);
@@ -263,16 +262,19 @@ void WorkspaceRepository::deleteNote(const QUuid& id) {
             const Note deletingNote = notes_[i];
             notes_.removeAt(i);
 
-            // Cascade delete attachments
+            // Cascade delete attachments linked to this note (new model uses linkedEntityType + linkedEntityId)
             for (int j = attachments_.size() - 1; j >= 0; --j) {
-                if (attachments_[j].noteId == id) {
+                if (attachments_[j].linkedEntityType == AttachmentEntityType::Note &&
+                    attachments_[j].linkedEntityId == id) {
                     deleteAttachment(attachments_[j].id);
-                }
+                    }
             }
+
+            // Persist attachment and note changes
             saveAttachments();
             saveNotes();
 
-            // LINK: Remove note file from disk
+            // Remove note file from disk
             removeNoteFromFile(deletingNote);
 
             emit noteDeleted(id);
@@ -295,6 +297,7 @@ QList<FileAttachment> WorkspaceRepository::getAttachmentsByWorkspace(const QUuid
 QList<FileAttachment> WorkspaceRepository::getAttachmentsByProject(const QUuid& projectId) const {
     QList<FileAttachment> result;
     for (const auto& att : attachments_) {
+        // Primary criterion: explicit projectId field
         if (att.projectId == projectId) {
             result.append(att);
         }
@@ -305,7 +308,8 @@ QList<FileAttachment> WorkspaceRepository::getAttachmentsByProject(const QUuid& 
 QList<FileAttachment> WorkspaceRepository::getAttachmentsByNote(const QUuid& noteId) const {
     QList<FileAttachment> result;
     for (const auto& att : attachments_) {
-        if (att.noteId == noteId) {
+        // New model: attachment linked to a Note via linkedEntityType + linkedEntityId
+        if (att.linkedEntityType == AttachmentEntityType::Note && att.linkedEntityId == noteId) {
             result.append(att);
         }
     }
@@ -326,11 +330,15 @@ QUuid WorkspaceRepository::createAttachment(const FileAttachment& attachment) {
         newAtt.projectId = defaultProjectForWorkspace(newAtt.workspaceId);
     }
     newAtt.createdAt = QDateTime::currentDateTime();
+    newAtt.updatedAt = newAtt.createdAt;
 
-    // LINK: Store file in project attachment directory
+
     QString storedFilePath = storeAttachmentFile(newAtt);
     if (!storedFilePath.isEmpty()) {
-        newAtt.filePath = storedFilePath;
+        newAtt.relativePath = storedFilePath;
+        // Update fileSize based on stored file
+        QFileInfo fi(storedFilePath);
+        newAtt.fileSize = fi.size();
     }
 
     attachments_.append(newAtt);
@@ -663,9 +671,10 @@ void WorkspaceRepository::saveAttachments()
         s.setValue("id", attachments_[i].id.toString(QUuid::WithoutBraces));
         s.setValue("workspaceId", attachments_[i].workspaceId.toString(QUuid::WithoutBraces));
         s.setValue("projectId", attachments_[i].projectId.toString(QUuid::WithoutBraces));
-        s.setValue("noteId", attachments_[i].noteId.toString(QUuid::WithoutBraces));
+        s.setValue("linkedEntityType", static_cast<int>(attachments_[i].linkedEntityType));
+        s.setValue("linkedEntityId", attachments_[i].linkedEntityId.toString(QUuid::WithoutBraces));
         s.setValue("fileName", attachments_[i].fileName);
-        s.setValue("filePath", attachments_[i].filePath);
+        s.setValue("filePath", attachments_[i].relativePath);
         s.setValue("mimeType", attachments_[i].mimeType);
         s.setValue("fileSize", attachments_[i].fileSize);
         s.setValue("createdAt", attachments_[i].createdAt.toString(Qt::ISODate));
@@ -688,12 +697,31 @@ void WorkspaceRepository::loadAttachments()
         att.id = QUuid::fromString(s.value("id").toString());
         att.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
         att.projectId = QUuid::fromString(s.value("projectId").toString());
-        att.noteId = QUuid::fromString(s.value("noteId").toString());
+
+        // linkedEntityType + linkedEntityId (new)
+        if (s.contains("linkedEntityType")) {
+            att.linkedEntityType = static_cast<AttachmentEntityType>(s.value("linkedEntityType").toInt());
+            att.linkedEntityId = QUuid::fromString(s.value("linkedEntityId").toString());
+        } else {
+            // Backwards-compatibility: older data used "noteId"
+            QString oldNoteId = s.value("noteId").toString();
+            if (!oldNoteId.isEmpty()) {
+                att.linkedEntityType = AttachmentEntityType::Note;
+                att.linkedEntityId = QUuid::fromString(oldNoteId);
+            } else {
+                // Default to Workspace-level link (or leave Null)
+                att.linkedEntityType = AttachmentEntityType::Workspace;
+                att.linkedEntityId = QUuid();
+            }
+        }
+
         att.fileName = s.value("fileName").toString();
-        att.filePath = s.value("filePath").toString();
+        att.relativePath = s.value("filePath").toString();
         att.mimeType = s.value("mimeType").toString();
         att.fileSize = s.value("fileSize").toLongLong();
         att.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
+        att.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
+
         attachments_.append(att);
     }
 
@@ -801,11 +829,11 @@ void WorkspaceRepository::removeNoteFromFile(const Note& note) const {
 
 QString WorkspaceRepository::storeAttachmentFile(const FileAttachment& attachment) const {
     // LINK: Copy/move attachment file to project attachment storage
-    if (attachment.filePath.isEmpty()) {
+    if (attachment.relativePath.isEmpty()) {
         return "";
     }
 
-    QFileInfo sourceInfo(attachment.filePath);
+    QFileInfo sourceInfo(attachment.relativePath);
     if (!sourceInfo.exists()) {
         return "";
     }
@@ -822,7 +850,7 @@ QString WorkspaceRepository::storeAttachmentFile(const FileAttachment& attachmen
     QString storedFile = QDir(attStorePath).filePath(sourceInfo.fileName());
 
     // Copy file to storage location
-    if (QFile::copy(attachment.filePath, storedFile)) {
+    if (QFile::copy(attachment.relativePath, storedFile)) {
         return storedFile;
     }
 
@@ -831,11 +859,11 @@ QString WorkspaceRepository::storeAttachmentFile(const FileAttachment& attachmen
 
 void WorkspaceRepository::removeAttachmentFile(const FileAttachment& attachment) const {
     // LINK: Remove attachment file and folder from disk
-    if (attachment.filePath.isEmpty()) {
+    if (attachment.relativePath.isEmpty()) {
         return;
     }
 
-    QFile::remove(attachment.filePath);
+    QFile::remove(attachment.relativePath);
 
     // Also try to remove the attachment folder if empty
     QString attFolderPath = QDir(projectPath(attachment.workspaceId, attachment.projectId))

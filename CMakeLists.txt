@@ -105,7 +105,10 @@ set (HEADER_FILES
         include/Data/workspace/Manager/TaskManager.h
         include/Data/workspace/Manager/NoteManager.h
         include/Data/Networking/SyncManager.h
-        include/Data/Project/ProjectCreateDialog.h)
+        include/Data/Project/ProjectCreateDialog.h
+        include/Data/attachments/AttachmentService.h
+        include/Data/attachments/AttachmentValidator.h
+        include/helpers/AttachmentManager.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 

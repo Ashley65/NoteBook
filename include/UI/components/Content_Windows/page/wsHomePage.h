@@ -37,6 +37,7 @@ public:
     Q_INVOKABLE void createNewTask(const QString& title);
     Q_INVOKABLE void createNewNote(const QString& title);
     Q_INVOKABLE void uploadFile(const QString& filePath);
+    Q_INVOKABLE void requestUploadFile();
 
     // Task Interactions
     Q_INVOKABLE void toggleTaskCompletion(const QString& taskId, bool isCompleted);
@@ -57,6 +58,7 @@ signals:
     void overdueTasksChanged();
     void projectProgressChanged();
     void activeProjectChanged();
+    void uploadMessage(const QString& message, bool isError);
 
 private:
     Workspace m_workspace;
