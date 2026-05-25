@@ -58,7 +58,10 @@ set (SOURCE_FILES
         src/Data/workspace/Manager/TaskManager.cpp
         src/Data/workspace/Manager/NoteManager.cpp
         src/UI/componets/Content_Windows/Page/wsHomePage.cpp
-        src/Data/Project/ProjectCreateDialog.cpp)
+        src/Data/Project/ProjectCreateDialog.cpp
+        src/UI/componets/Dialog/DropAreaWidget.cpp
+        src/UI/componets/Dialog/UploadDialog.cpp
+        src/Data/workspace/Manager/TabManager.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -108,7 +111,12 @@ set (HEADER_FILES
         include/Data/Project/ProjectCreateDialog.h
         include/Data/attachments/AttachmentService.h
         include/Data/attachments/AttachmentValidator.h
-        include/helpers/AttachmentManager.h)
+        include/helpers/AttachmentManager.h
+        include/UI/components/Dialogs/UploadDialog.h
+        include/UI/components/Dialogs/DropAreaWidget.h
+        include/UI/components/Content_Windows/page/wsNotePage.h
+        include/UI/components/Top_Menubar/TabBar.h
+        include/Data/workspace/Manager/TabManager.h)
 
 add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
 

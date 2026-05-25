@@ -144,6 +144,39 @@ void wsHomePage::requestUploadFile()
     uploadFile(selected);
 }
 
+void wsHomePage::deleteNote(const QString& noteId)
+{
+    if (!m_noteManager || noteId.isEmpty())
+    {
+        return;
+    }
+
+    const QUuid id = QUuid::fromString(noteId);
+    m_noteManager->deleteNote(id);
+}
+
+void wsHomePage::openUploadDialog()
+{
+    if (!m_uploadDialog) {
+        m_uploadDialog = new UploadDialog(this);
+        m_uploadDialog->setFileFilter(
+            tr("Allowed Files (*.pdf *.png *.jpg *.jpeg *.txt *.md *.docx *.xlsx);;All Files (*.*)")
+        );
+
+        connect(m_uploadDialog, &UploadDialog::uploadRequested,
+                this, &wsHomePage::onUploadRequested);
+    }
+
+    // Keep context current in case workspace/project changed since dialog creation
+    m_uploadDialog->setWorkspaceId(workspaceId_);
+    m_uploadDialog->setProjectId(m_activeProject.id);
+
+    m_uploadDialog->show();
+    m_uploadDialog->raise();
+    m_uploadDialog->activateWindow();
+
+}
+
 void wsHomePage::toggleTaskCompletion(const QString& taskId, bool isCompleted)
 {
     if (!m_taskManager || taskId.isEmpty())
@@ -157,8 +190,22 @@ void wsHomePage::toggleTaskCompletion(const QString& taskId, bool isCompleted)
 
 void wsHomePage::openNote(const QString& noteId)
 {
-    // TODO: Implement logic to open the note in a detailed view or editor, potentially emitting a signal with the note ID for the main window to handle navigation
-    // This might involve emitting a signal like noteOpenRequested(noteId) that the main window listens to and then navigates to a NoteDetailPage with the given noteId
+    if (noteId.isEmpty())
+    {
+        return;
+    }
+
+    const QUuid id = QUuid::fromString(noteId);
+    Note note = m_repo->getNoteById(id);
+    if (note.id.isNull())
+    {
+        emit uploadMessage(tr("Note not found."), true);
+        return;
+    }
+
+    emit noteOpenRequested(noteId);
+
+
 }
 
 
@@ -381,4 +428,21 @@ QVariantList wsHomePage::overdueTasks() const
 QVariantList wsHomePage::projectProgress() const
 {
     return m_projectProgress;
+}
+
+void wsHomePage::onUploadRequested(const QStringList& sourcePaths, const QUuid& workspaceId, const QUuid& projectId)
+{
+    Q_UNUSED(workspaceId);
+    Q_UNUSED(projectId);
+
+    if (sourcePaths.isEmpty()) {
+        emit uploadMessage(tr("No files selected for upload."), true);
+        return;
+    }
+
+    for (const QString& filePath : sourcePaths) {
+        // For now this uses your existing upload entry point.
+        // Later, inside uploadFile() call AttachmentManager for secure validation/store.
+        uploadFile(filePath);
+    }
 }

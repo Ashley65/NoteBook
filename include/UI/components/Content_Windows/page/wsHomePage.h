@@ -13,6 +13,8 @@
 #include "Data/workspace/Manager/TaskManager.h"
 #include <QVariantList>
 
+#include "UI/components/Dialogs/UploadDialog.h"
+
 
 class wsHomePage : public IWorkspaceView
 {
@@ -39,6 +41,10 @@ public:
     Q_INVOKABLE void uploadFile(const QString& filePath);
     Q_INVOKABLE void requestUploadFile();
 
+    Q_INVOKABLE void deleteNote(const QString& noteId);
+
+    Q_INVOKABLE void openUploadDialog();
+
     // Task Interactions
     Q_INVOKABLE void toggleTaskCompletion(const QString& taskId, bool isCompleted);
     Q_INVOKABLE void openNote(const QString& noteId);
@@ -59,6 +65,10 @@ signals:
     void projectProgressChanged();
     void activeProjectChanged();
     void uploadMessage(const QString& message, bool isError);
+    void noteOpenRequested(const QString& noteId);
+
+private slots:
+    void onUploadRequested(const QStringList& sourcePaths, const QUuid& workspaceId, const QUuid& projectId);
 
 private:
     Workspace m_workspace;
@@ -67,6 +77,7 @@ private:
     QUuid workspaceId_;
 
     WorkspaceRepository* m_repo {nullptr};
+    UploadDialog* m_uploadDialog = nullptr;
     QVariantList m_recentNotes;
     QVariantList m_todayTasks;
     QVariantList m_overdueTasks;

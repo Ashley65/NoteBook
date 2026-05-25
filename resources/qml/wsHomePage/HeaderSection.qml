@@ -162,11 +162,11 @@ Item {
             // --- UPLOAD FILE BUTTON ---
             Button {
                 id: btnUploadFile
-                text: "📎  Upload File"
+                text: "  Upload File"
 
                 onClicked: {
                     if (typeof wsHomePage !== "undefined") {
-                        wsHomePage.requestUploadFile()
+                        wsHomePage.openUploadDialog()
                     } else {
                         console.log("Mock: Upload File Dialog Triggered")
                     }
