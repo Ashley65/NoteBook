@@ -5,12 +5,15 @@
 #include <QEvent>
 #include <QLabel>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QPushButton>
 #include <QShowEvent>
 #include <QTimer>
 #include <QVariantMap>
 #include <QWidget>
 #include <QStringList>
+#include <QDebug>
+#include <QGridLayout>
 #include <UI/mainWIndow.h>
 #include <UI/components/SIde_Bar/sideBar.h>
 
@@ -69,14 +72,12 @@ static void addStyle(HWND hwnd, const LONG_PTR add)
 
 MainWindow::MainWindow(QWidget* parent)
 {
-
     setWindowTitle("ChronoTasks");
     resize(1000, 700);
 
     m_workspaceRepo = new WorkspaceRepository(this);
     m_stateController = new AppStateController(this);
-
-
+    m_tabManager = new TabManager(this);
 
     // 2. Ensure the stylesheet allows transparency
     setStyleSheet("QMainWindow { background: transparent; }");
@@ -89,51 +90,53 @@ MainWindow::MainWindow(QWidget* parent)
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // CSS: grid-template-columns: 0.2fr 1.8fr 1fr;
-    // Map to integer stretches (×10): 2, 18, 10
     // Initial stretches will be updated by resizeEvent/setupSideBar
-    mainLayout->setColumnStretch(0, 0); 
+    mainLayout->setColumnStretch(0, 0);
     mainLayout->setColumnStretch(1, 14);
     mainLayout->setColumnStretch(2, 10);
 
-    // CSS: grid-template-rows: 0.2fr 1.8fr 1fr;
     mainLayout->setRowStretch(0, 2);
     mainLayout->setRowStretch(1, 18);
     mainLayout->setRowStretch(2, 10);
 
-    // Dark background for the main container
-
     // ============================================================
     // 2. TOP MENUBAR (.top_menubar)
     // ============================================================
-    // CSS: grid-area: 1 / 1 / 2 / 6; (Row 0, Col 0, Span 1, Span 3)
 
     topBarFrame = new QFrame();
+    topBarFrame->setObjectName("topBarFrame");
     mainLayout->addWidget(topBarFrame, 0, 0, 1, 3);
 
     topBarFrame->installEventFilter(this);
     setMouseTracking(true);
+
     // Internal Grid for Top Bar
     auto *topLayout = new QGridLayout(topBarFrame);
     topLayout->setContentsMargins(10, 8, 10, 8);
     topLayout->setSpacing(0);
 
-    // CSS: grid-template-columns: 1fr 1fr 1fr;
-    topLayout->setColumnStretch(0, 1);
-    topLayout->setColumnStretch(1, 8);  // middle expands
-    topLayout->setColumnStretch(2, 0);  // right column stays tight
+    // Horizontal stretch: Left/Right fixed, Center expands
+    topLayout->setColumnStretch(0, 0);
+    topLayout->setColumnStretch(1, 1);
+    topLayout->setColumnStretch(2, 0);
 
-    // CSS: grid-template-rows: 1fr 0.5fr 2fr; -> (2 : 1 : 4)
-    topLayout->setRowStretch(0, 2);
+    // Vertical stretch: Two equal rows (TopLayer and ControlLayer)
+    topLayout->setRowStretch(0, 1);
     topLayout->setRowStretch(1, 1);
-    topLayout->setRowStretch(2, 4);
 
+    // --- WIDGET INITIALIZATION ---
 
-    // Spans Row 0, Cols 0-1
+    // InfoBar
     auto* infoBar = new InfoBar(topBarFrame);
     m_infoBar = infoBar;
     infoBar->setAppName("ChronoTasks");
-    infoBar->setCurrentScreenLabel("TEST Home");
+    infoBar->setCurrentScreenLabel("");
+
+    auto* infoContainer = new QFrame(topBarFrame);
+    auto* infoLay = new QGridLayout(infoContainer);
+    infoLay->setContentsMargins(0, 0, 0, 0);
+    infoLay->setSpacing(0);
+    infoLay->addWidget(infoBar, 0, 0);
 
 #ifdef Q_OS_WIN
     // Let double-click on the InfoBar behave like a title bar toggle
@@ -163,73 +166,58 @@ MainWindow::MainWindow(QWidget* parent)
     });
 #endif
 
-    auto* infoContainer = new QFrame(topBarFrame);
-    auto* infoLay = new QGridLayout(infoContainer);
-    infoLay->setContentsMargins(0, 0, 0, 0);
-    infoLay->setSpacing(0);
-    infoLay->addWidget(infoBar, 0, 0);
+    // Window Actions Bar
+    setupWindowActionsBar();
 
-    // Spans Row 2, Cols 0-2
+    // Navigation Bar
     m_navigationBar = new NavigationBar(topBarFrame);
-    topLayout->addWidget(m_navigationBar, 2, 0, 1, 2);
+    m_navigationBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
+    m_navigationBar->setMaximumWidth(100);
     connect(m_navigationBar, &NavigationBar::backClicked, this, &MainWindow::goBack);
     connect(m_navigationBar, &NavigationBar::forwardClicked, this, &MainWindow::goForward);
     connect(m_navigationBar, &NavigationBar::refreshClicked, this, &MainWindow::refreshPage);
 
+    // Tab Bar
+    m_tabBar = new TabBar(m_tabManager, topBarFrame);
+    m_tabBar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
-    // -- Window_action_bar ---
-    // Spans Rows 0-1, Col 2
-    // using the window actions bar setup function
-    setupWindowActionsBar();
-    // Ensure the actions bar does not expand: prefer fixed/minimum width and align right
-    if (m_windowActionsBar) {
-        m_windowActionsBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
-        m_windowActionsBar->setMaximumWidth(220); // tweak as needed for your buttons
-    }
+    // Menu Bar
+    m_menuButtonBar = new MenuButtonBar(topBarFrame);
+
+    // --- WIDGET PLACEMENT ---
+
+    // ROW 0: The "TopLayer" (App Name & Window Controls)
 #ifdef Q_OS_MAC
-    // Place window actions to the left of infoContainer (standard macOS layout)
+    // macOS: Controls left, Info right
     topLayout->addWidget(m_windowActionsBar, 0, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
-    
-    // Place infoContainer after the window actions
     topLayout->addWidget(infoContainer, 0, 1, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
     infoContainer->setAttribute(Qt::WA_TransparentForMouseEvents, false);
-    
-    // Adjust column stretches to keep them on the left
-    topLayout->setColumnStretch(0, 0); 
-    topLayout->setColumnStretch(1, 0);
-    topLayout->setColumnStretch(2, 1); // allow the rest to expand
 #else
-    topLayout->addWidget(infoContainer, 0, 0, 1, 1);
-    topLayout->addWidget(m_windowActionsBar, 0, 2, 2, 1, Qt::AlignRight | Qt::AlignTop);
+    // Windows/Linux: Info left, Controls right
+    topLayout->addWidget(infoContainer, 0, 0, 1, 2, Qt::AlignLeft | Qt::AlignVCenter);
+    topLayout->addWidget(m_windowActionsBar, 0, 2, 1, 1, Qt::AlignRight | Qt::AlignTop);
 #endif
 
-    // -- Menu_dropdown_bar ---
-    auto* menuBar = new MenuButtonBar(topBarFrame);
-    m_menuButtonBar = menuBar;
-    topLayout->addWidget(m_menuButtonBar, 2, 2, 1, 1, Qt::AlignRight | Qt::AlignVCenter);
-
+    // ROW 1: The "controlLayer" (Navigation & Tabs)
+    topLayout->addWidget(m_navigationBar, 1, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
+    topLayout->addWidget(m_tabBar, 1, 1, 1, 1);
+    topLayout->addWidget(m_menuButtonBar, 1, 2, 1, 1, Qt::AlignRight | Qt::AlignVCenter);
 
 
     // ============================================================
     // 3. SIDE BAR (.Side_bar)
     // ============================================================
-    // CSS: grid-area: 2 / 1 / 4 / 2; (Row 1, Col 0, Span 2, Span 1)
-
 
     sideBarFrame = new QFrame();
     mainLayout->addWidget(sideBarFrame, 1, 0, 2, 1);
 
-    // now this will see a non-null sideBarFrame
     setupSideBar();
     setupSidebarConnections();
-
-
-
 
     // ============================================================
     // 4. CONTENT WINDOW (.Content_window)
     // ============================================================
-    // CSS: grid-area: 2 / 2 / 4 / 6; (Row 1, Col 1, Span 2, Span 4)
+
     m_mainContent = new MainContentView(m_workspaceRepo, this);
     mainLayout->addWidget(m_mainContent, 1, 1, 2, 2);
 
@@ -239,6 +227,7 @@ MainWindow::MainWindow(QWidget* parent)
         m_workspaceRepo->createWorkspace("Personal Workspace");
         workspaces = m_workspaceRepo->workspaces();
     }
+
     // Seed a single component-test workspace for local UI experimentation.
     bool hasTestWorkspace = false;
     for (const Workspace& existingWorkspace : workspaces) {
@@ -256,13 +245,15 @@ MainWindow::MainWindow(QWidget* parent)
         );
     }
 
-
     if (!workspaces.isEmpty()) {
         const Workspace& ws = workspaces.first();
         m_stateController->setActiveWorkspace(ws.id, ws.name);
+
+        m_tabManager->addTab(ws.name, "Home", ws.id, "#3B82F6");
     }
 
-    m_mainContent->installEventFilter(this); // Watch for resize events on content
+    m_mainContent->installEventFilter(this);
+
     // Adding the floating toggle button for sidebar linked to content area
     m_floatingToggleButton = new QPushButton(m_mainContent);
     m_floatingToggleButton->setText("☰");
@@ -286,8 +277,74 @@ MainWindow::MainWindow(QWidget* parent)
             updateFloatingToggleButtonVisibility();
         }
     });
+
+    connect(m_tabManager, &TabManager::tabOpened, this, [this](const QString& viewType, const QUuid& contextId) {
+        if (!m_mainContent || !m_workspaceRepo) return;
+        
+        qDebug() << "Tab opened with viewType:" << viewType << "and contextId:" << contextId;
+
+        if (viewType == "Home") {
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
+            if (!ws.id.isNull()) {
+                // 1. Tell MainContentView to specifically load the Home/General Workspace widget
+                m_mainContent->setActiveWorkspace(ws);
+
+                // 2. Update global state
+                if (m_stateController) {
+                    m_stateController->setActiveWorkspace(ws.id, ws.name);
+                }
+
+                // 3. Sync the Sidebar UI
+                if (m_sideBar) {
+                    m_sideBar->setWorkspaceId(ws.id);
+                    m_sideBar->setWorkspaceName(ws.name);
+                    m_sideBar->setActiveProjectId(QUuid());
+                }
+            }
+        } else if (viewType == "Project") {
+            const Project p = m_workspaceRepo->getProjectById(contextId);
+            if (!p.id.isNull()) {
+
+                // 1. Ensure the global app state knows which workspace this project belongs to
+                const Workspace ws = m_workspaceRepo->getWorkspaceById(p.workspaceId);
+                if (!ws.id.isNull()) {
+                    if (m_stateController) {
+                        m_stateController->setActiveWorkspace(ws.id, ws.name);
+                    }
+                    if (m_sideBar) {
+                        m_sideBar->setWorkspaceId(ws.id);
+                        m_sideBar->setWorkspaceName(ws.name);
+                    }
+                }
+
+                // 2. Tell MainContentView to load this specific Project widget (creates a new tab view)
+                m_mainContent->setActiveProject(p);
+
+                // 3. Highlight this specific project in the Sidebar
+                if (m_sideBar) {
+                    m_sideBar->setActiveProjectId(p.id);
+                }
+            }
+        }
+    });
+
+    connect(m_tabManager, &TabManager::tabDiscarded, this, [this](const QUuid& contextId) {
+        if (m_mainContent) {
+            m_mainContent->discardView(contextId);
+        }
+    });
+
+    connect(m_tabManager, &TabManager::tabClosed, this, [this](const QString& viewType, const QUuid& contextId) {
+        if (m_mainContent) {
+            m_mainContent->discardView(contextId);
+        }
+    });
+
     m_floatingToggleButton->hide();
 
+    // Apply theme to topBarFrame on startup
+
+    updateWindowTheme();
 }
 
 void MainWindow::goBack()
@@ -492,19 +549,47 @@ void MainWindow::setupSidebarConnections()
         if (m_infoBar) {
             m_infoBar->setCurrentScreenLabel(ctx.activeWorkspaceName);
         }
-        // Update the Sidebar label
+        // Update the Sidebar label and restore last project if present
         if (m_sideBar) {
             m_sideBar->setWorkspaceName(ctx.activeWorkspaceName);
             m_sideBar->setWorkspaceId(ctx.activeWorkspaceId);
-            m_sideBar->setActiveProjectId(QUuid());
+
+            // Try to restore the last project for this workspace
+            if (!ctx.activeWorkspaceId.isNull() && m_stateController) {
+                const QUuid lastProj = m_stateController->lastProjectForWorkspace(ctx.activeWorkspaceId);
+                if (!lastProj.isNull() && m_workspaceRepo) {
+                    const Project p = m_workspaceRepo->getProjectById(lastProj);
+                    if (!p.id.isNull()) {
+                        m_sideBar->setActiveProjectId(p.id);
+                    } else {
+                        m_sideBar->setActiveProjectId(QUuid());
+                    }
+                } else {
+                    m_sideBar->setActiveProjectId(QUuid());
+                }
+            } else {
+                m_sideBar->setActiveProjectId(QUuid());
+            }
         }
+
         if (ctx.activeWorkspaceId.isNull()) {
             return;
         }
 
         const Workspace ws = m_workspaceRepo->getWorkspaceById(ctx.activeWorkspaceId);
         if (!ws.id.isNull()) {
+            // Activate the workspace view
             m_mainContent->setActiveWorkspace(ws);
+
+            // If there's a remembered last project for this workspace, show it
+            const QUuid lastProj = m_stateController->lastProjectForWorkspace(ctx.activeWorkspaceId);
+            if (!lastProj.isNull()) {
+                const Project p = m_workspaceRepo->getProjectById(lastProj);
+                if (!p.id.isNull()) {
+                    m_mainContent->setActiveProject(p);
+                }
+            }
+
             return;
         }
 
@@ -514,12 +599,6 @@ void MainWindow::setupSidebarConnections()
     connect(m_stateController, &AppStateController::activeWorkspaceChanged,
             this, [refreshSidebarProjects]() {
         refreshSidebarProjects();
-    });
-
-    connect(m_stateController, &AppStateController::activeWorkspaceChanged,
-            this, [this]() {
-        const AppContext& ctx = m_stateController->context();
-        m_mainContent->setActiveWorkspace(ctx);
     });
 
     // Handle Sidebar Intent
@@ -533,7 +612,7 @@ void MainWindow::setupSidebarConnections()
         if (dlg.exec() == QDialog::Accepted) {
             const QUuid id = dlg.selectedWorkspaceId();
             const Workspace ws = m_workspaceRepo->getWorkspaceById(id);
-            m_stateController->setActiveWorkspace(ws.id, ws.name);
+            m_tabManager->addTab(ws.name, "Home", ws.id, "#3B82F6");
         }
     });
 
@@ -604,22 +683,28 @@ void MainWindow::setupSidebarConnections()
 
     connect(m_sideBar, &SideBar::projectSelected, this, [this](const QUuid& projectId){
 
-        if (projectId.isNull() || !m_workspaceRepo)
-        {
-            return;
-        }
+    if (projectId.isNull() || !m_workspaceRepo || !m_stateController) return;
 
-        const Project project = m_workspaceRepo->getProjectById(projectId);
-        if (project.id.isNull())
-        {
-            return;
-        }
+    const Project project = m_workspaceRepo->getProjectById(projectId);
+    if (project.id.isNull()) return;
 
-        m_sideBar->setActiveProjectId(projectId);
 
-        m_mainContent->setActiveProject(project);
+    m_sideBar->setActiveProjectId(projectId);
 
-        });
+
+    m_stateController->setLastProjectForWorkspace(project.workspaceId, project.id);
+
+
+    const Workspace ws = m_workspaceRepo->getWorkspaceById(project.workspaceId);
+
+    QString tabTitle = project.name;
+    if (!ws.id.isNull()) {
+
+        tabTitle = QString("%1 / %2").arg(ws.name, project.name);
+    }
+
+    m_tabManager->addTab(tabTitle, "Project", project.id, "#81C784");
+});
 
     connect(m_workspaceRepo, &WorkspaceRepository::projectAdded, this, [refreshSidebarProjects](const Project&) {
         refreshSidebarProjects();
@@ -664,6 +749,28 @@ void MainWindow::updateWindowTheme()
 
 {
     const bool darkMode = isDarkModeEnabled();
+
+    // Style the topBarFrame based on dark/light mode
+    if (topBarFrame) {
+        if (darkMode) {
+
+            topBarFrame->setStyleSheet(
+                "QFrame#topBarFrame {"
+                "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e1e1e, stop:1 #161616);"
+                "  border-bottom: 1px solid rgba(255, 255, 255, 0.04);"
+                "}"
+            );
+        } else {
+
+            topBarFrame->setStyleSheet(
+                "QFrame#topBarFrame {"
+                "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f7f7f7, stop:1 #efefef);"
+                "  border-bottom: 1px solid rgba(0, 0, 0, 0.06);"
+                "}"
+            );
+        }
+    }
+
     // Update title bar and other elements based on dark mode status
     if (auto infoBar = topBarFrame->findChild<InfoBar*>())
     {
@@ -723,6 +830,121 @@ bool MainWindow::isDarkModeEnabled() const
     const QColor base = pal.window().color();
     return base.lightness() < 128;
     
+}
+
+void MainWindow::debugTopBarGrid()
+{
+    if (!topBarFrame) return;
+
+    // Colors for different widgets
+    const QStringList colors = {
+        "#FF6B6B", // Red
+        "#4ECDC4", // Teal
+        "#FFE66D", // Yellow
+        "#95E1D3", // Mint
+        "#C7CEEA", // Lavender
+        "#FF9999", // Light Red
+        "#FFCC99", // Peach
+        "#99CCFF"  // Light Blue
+    };
+
+    qDebug() << "=== Top Bar Grid Debug ===";
+    qDebug() << "Top bar frame:" << topBarFrame->metaObject()->className();
+
+    const QRect topBarGeom = topBarFrame->geometry();
+    qDebug() << QString("Geometry: QRect(%1,%2 %3x%4)")
+        .arg(topBarGeom.x()).arg(topBarGeom.y()).arg(topBarGeom.width()).arg(topBarGeom.height());
+
+    // Lambda to apply debug style recursively
+    auto applyDebugStyle = [&colors](QWidget* widget, int& colorIdx) {
+        const QString& borderColor = colors[colorIdx % colors.size()];
+
+        // Create debug border style with !important to override existing styles
+        QString debugStyle = QString(
+            "%1 { "
+            "  border: 3px solid %2 !important; "
+            "  background-color: rgba(255, 255, 255, 0.05) !important; "
+            "}"
+        ).arg(widget->metaObject()->className(), borderColor);
+
+        widget->setStyleSheet(debugStyle);
+
+        const QRect geom = widget->geometry();
+        qDebug() << QString("  ✓ %1 at QRect(%2,%3 %4x%5)")
+            .arg(widget->metaObject()->className())
+            .arg(geom.x()).arg(geom.y()).arg(geom.width()).arg(geom.height());
+
+        colorIdx++;
+    };
+
+    // Get the layout
+    auto* layout = qobject_cast<QGridLayout*>(topBarFrame->layout());
+    if (layout) {
+        qDebug() << "Grid layout:" << layout->rowCount() << "rows x" << layout->columnCount() << "cols";
+    }
+
+    qDebug() << "\n--- Applying Debug Borders ---";
+    int colorIdx = 0;
+
+    // Apply to direct grid items first
+    if (layout) {
+        for (int row = 0; row < layout->rowCount(); ++row) {
+            for (int col = 0; col < layout->columnCount(); ++col) {
+                QLayoutItem* item = layout->itemAtPosition(row, col);
+                if (item && item->widget()) {
+                    QWidget* widget = item->widget();
+                    applyDebugStyle(widget, colorIdx);
+                }
+            }
+        }
+    }
+
+    // Also style key components directly to ensure visibility
+    qDebug() << "\n--- Key Components ---";
+    if (m_windowActionsBar) {
+        applyDebugStyle(m_windowActionsBar, colorIdx);
+    } else {
+        qDebug() << "  ✗ WindowsActionsBar is null";
+    }
+
+    if (m_navigationBar) {
+        applyDebugStyle(m_navigationBar, colorIdx);
+    } else {
+        qDebug() << "  ✗ NavigationBar is null";
+    }
+
+    if (m_tabBar) {
+        applyDebugStyle(m_tabBar, colorIdx);
+    } else {
+        qDebug() << "  ✗ TabBar is null";
+    }
+
+    if (m_menuButtonBar) {
+        applyDebugStyle(m_menuButtonBar, colorIdx);
+    } else {
+        qDebug() << "  ✗ MenuButtonBar is null";
+    }
+
+    // Also apply debug style to all direct children
+    qDebug() << "\n--- All Direct Children ---";
+    const QObjectList& children = topBarFrame->children();
+    for (QObject* obj : children) {
+        QWidget* childWidget = qobject_cast<QWidget*>(obj);
+        if (childWidget) {
+            // Skip if already styled (to avoid duplicate color assignment)
+            bool alreadyStyled = (childWidget == m_windowActionsBar ||
+                                 childWidget == m_navigationBar ||
+                                 childWidget == m_tabBar ||
+                                 childWidget == m_menuButtonBar);
+
+            if (!alreadyStyled) {
+                applyDebugStyle(childWidget, colorIdx);
+            }
+        }
+    }
+
+    qDebug() << "\n=== Debug overlay applied ===";
+    qDebug() << "Press Ctrl+Shift+G again or restart app to clear";
 }
 
 void MainWindow::setCursorForRegion(Region r)
@@ -829,7 +1051,7 @@ bool MainWindow::eventFilter(QObject* obj, QEvent* event)
                 const QPoint topLocal = topBarFrame->mapFromGlobal(e->globalPosition().toPoint());
                 QWidget *child = topBarFrame->childAt(topLocal);
                 for (QWidget *w = child; w && w != topBarFrame; w = w->parentWidget()) {
-                    if (w == m_windowActionsBar || qobject_cast<QPushButton*>(w)) {
+                    if (w == m_windowActionsBar || w == m_tabBar  || qobject_cast<QPushButton*>(w)) {
                         return QWidget::eventFilter(obj, event); // let the button handle it
                     }
                 }
@@ -945,6 +1167,21 @@ void MainWindow::leaveEvent(QEvent* e)
     QWidget::leaveEvent(e);
 }
 
+void MainWindow::keyPressEvent(QKeyEvent* e)
+{
+
+    if (e->key() == Qt::Key_G &&
+        (e->modifiers() & Qt::ControlModifier) &&
+        (e->modifiers() & Qt::ShiftModifier))
+    {
+        debugTopBarGrid();
+        e->accept();
+        return;
+    }
+
+    QWidget::keyPressEvent(e);
+}
+
 void MainWindow::showEvent(QShowEvent* e)
 {
     QWidget::showEvent(e);
@@ -1039,7 +1276,11 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, long *r
                             (m_navigationBar &&
                              m_navigationBar->geometry().contains(topLocal));
 
-                        if (!overActionsBar && !overMenuButtonBar && !overNavigationBar) {
+                        const bool overTabBar =
+                            (m_tabBar &&
+                            m_tabBar->geometry().contains(topLocal));
+
+                        if (!overActionsBar && !overMenuButtonBar && !overNavigationBar && !overTabBar) {
                             *result = HTCAPTION;   // drag & Snap flyout allowed
                             return true;
                         }

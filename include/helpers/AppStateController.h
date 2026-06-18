@@ -8,6 +8,7 @@
 #include <QString>
 #include <QObject>
 #include <QUuid>
+#include <QMap>
 
 
 struct AppContext
@@ -48,6 +49,9 @@ public slots:
     void setDarkMode(bool value);
     void setSelectedTaskId(const QUuid& taskId);
     void setSelectedFilter(const QString& filter);
+    // Remember last selected project per workspace (persisted)
+    void setLastProjectForWorkspace(const QUuid& workspaceId, const QUuid& projectId);
+    [[nodiscard]] QUuid lastProjectForWorkspace(const QUuid& workspaceId) const;
 
 signals:
     void activeWorkspaceChanged();
@@ -58,5 +62,6 @@ signals:
 
 private:
     AppContext ctx_;
+    QMap<QUuid, QUuid> lastProjects_;
 };
 #endif //TASKHELPER_APPSTATECONTROLLER_H

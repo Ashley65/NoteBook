@@ -24,6 +24,7 @@ public:
     void setActiveWorkspace(const Workspace& ws);
     void setActiveWorkspace(const AppContext& ctx);
     void setActiveProject(const Project& project);
+    void discardView(const QUuid& contextId);
 
 private:
     QHash<QUuid, IWorkspaceView*> views_;

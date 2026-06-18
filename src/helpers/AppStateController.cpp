@@ -1,5 +1,6 @@
 #include "helpers/AppStateController.h"
 #include <QSettings>
+#include <QVariantMap>
 
 AppStateController::AppStateController(QObject* parent) : QObject(parent)
 {
@@ -12,6 +13,16 @@ AppStateController::AppStateController(QObject* parent) : QObject(parent)
     ctx_.isDarkMode = settings.value("isDarkMode", false).toBool();
     ctx_.selectedTaskId = QUuid::fromString(settings.value("selectedTaskId", "").toString());
     ctx_.selectedFilter = settings.value("selectedFilter", "").toString();
+
+    // Load persisted per-workspace last project mapping
+    QVariantMap lastMap = settings.value("lastProjects", QVariantMap()).toMap();
+    for (auto it = lastMap.constBegin(); it != lastMap.constEnd(); ++it) {
+        const QUuid wsId = QUuid::fromString(it.key());
+        const QUuid projId = QUuid::fromString(it.value().toString());
+        if (!wsId.isNull() && !projId.isNull()) {
+            lastProjects_.insert(wsId, projId);
+        }
+    }
 }
 
 const AppContext& AppStateController::context() const {
@@ -60,3 +71,29 @@ void AppStateController::setSelectedFilter(const QString& filter) {
     settings.setValue("selectedFilter", filter);
     emit selectedFilterChanged();
 }
+
+void AppStateController::setLastProjectForWorkspace(const QUuid& workspaceId, const QUuid& projectId)
+{
+    if (workspaceId.isNull()) return;
+
+    if (projectId.isNull()) {
+        lastProjects_.remove(workspaceId);
+    } else {
+        lastProjects_.insert(workspaceId, projectId);
+    }
+
+    // Persist mapping into QSettings as a QVariantMap
+    QVariantMap map;
+    for (auto it = lastProjects_.constBegin(); it != lastProjects_.constEnd(); ++it) {
+        map.insert(it.key().toString(QUuid::WithoutBraces), it.value().toString(QUuid::WithoutBraces));
+    }
+    QSettings settings;
+    settings.setValue("lastProjects", map);
+}
+
+QUuid AppStateController::lastProjectForWorkspace(const QUuid& workspaceId) const
+{
+    if (workspaceId.isNull()) return QUuid();
+    return lastProjects_.value(workspaceId, QUuid());
+}
+

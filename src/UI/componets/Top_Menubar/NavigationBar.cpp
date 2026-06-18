@@ -68,7 +68,7 @@ void NavigationBar::initUi()
 {
     m_layout = new QHBoxLayout(this);
     m_layout->setContentsMargins(0, 0, 0, 0);
-    m_layout->setSpacing(6);
+    m_layout->setSpacing(4);
 
     constexpr int buttonSize = 28;
 

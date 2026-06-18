@@ -61,7 +61,8 @@ set (SOURCE_FILES
         src/Data/Project/ProjectCreateDialog.cpp
         src/UI/componets/Dialog/DropAreaWidget.cpp
         src/UI/componets/Dialog/UploadDialog.cpp
-        src/Data/workspace/Manager/TabManager.cpp)
+        src/Data/workspace/Manager/TabManager.cpp
+        src/UI/componets/Top_Menubar/TabBar.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)

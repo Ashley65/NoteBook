@@ -25,9 +25,11 @@
 #include "components/Top_Menubar/InfoBar.h"
 #include "components/Top_Menubar/NavigationBar.h"
 #include "components/Top_Menubar/MenuButtonBar.h"
+#include "components/Top_Menubar/TabBar.h"
 #include "components/SIde_Bar/sideBar.h"
 #include "helpers/AppStateController.h"
 #include "Data/workspace/WorkspaceRepository.h"
+#include "Data/workspace/Manager/TabManager.h"
 #include "components/Content_Windows/MainContentView.h"
 
 class MainWindow : public QWidget
@@ -58,6 +60,10 @@ private:
     InfoBar* m_infoBar {nullptr};
     MenuButtonBar* m_menuButtonBar {nullptr};
     QPushButton* m_floatingToggleButton  {nullptr};
+    TabBar* m_tabBar {nullptr};
+    TabManager* m_tabManager {nullptr};
+
+
     void setupWindowActionsBar();
     void setupInfoBar();
     void setupNavigationBar();
@@ -68,6 +74,9 @@ private:
 
     void updateWindowTheme();
     [[nodiscard]] bool isDarkModeEnabled() const;
+
+    // Debug function to visualize top bar grid layout
+    void debugTopBarGrid();
 
     enum Region {
         None       = 0,
@@ -110,6 +119,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent *e) override;
     void resizeEvent(QResizeEvent* e) override;
     void leaveEvent(QEvent *e) override;
+    void keyPressEvent(QKeyEvent *e) override;
 
     void showEvent(QShowEvent *e) override;
 
