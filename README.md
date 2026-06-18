@@ -2,7 +2,7 @@
 
 NoteBook is a high-performance, multi-platform productivity application designed for seamless workspace and task management. Built with C++20 and Qt 6, it provides a modern, responsive interface for organizing projects, notes, and workflows efficiently.
 
-## 🚀 Key Features
+## Key Features
 
 -   **Workspace Management**: Create and switch between multiple isolated workspaces to keep different areas of your life or work organized.
 -   **Project & Task Tracking**: Organize your work into projects with granular task tracking, priority levels (Low, Medium, High), and due dates.
@@ -14,13 +14,13 @@ NoteBook is a high-performance, multi-platform productivity application designed
 -   **Hybrid UI**: Combines the power of Qt Widgets for complex logic with the flexibility of Qt Quick/QML for smooth, dynamic UI components.
 -   **Data Integrity**: Automatic cleanup of orphaned files and structured data persistence to ensure your workspace remains clean and reliable.
 
-## 🛠️ Built With
+## Built With
 
 -   **C++20**: Utilizing modern language features for performance and safety.
 -   **Qt 6.11.0**: Core, Widgets, Quick (QML), Svg, Network, and Core5Compat.
 -   **CMake**: Robust build system for cross-platform compatibility.
 
-## 📦 Prerequisites
+## Prerequisites
 
 Ensure you have the following installed:
 -   **CMake** (v3.16 or higher)
@@ -30,10 +30,27 @@ Ensure you have the following installed:
     -   Linux: GCC or Clang
     -   macOS: Apple Clang
 
-## 🔨 Getting Started
+## Getting Started
 
 ### 1. Clone the repository
 ```bash
 git clone https://github.com/Ashley65/NoteBook.git
 cd NoteBook
+```
+
+### 2. Configure the project
+**Windows (MSVC):**
+```powershell
+cmake -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.11.0/msvc2022_64" -G "Visual Studio 17 2022"
+```
+
+**Linux/macOS:**
+```bash
+cmake -B build -DCMAKE_PREFIX_PATH=/path/to/Qt6
+```
+
+### 3. Build the application
+```bash
+cmake --build build --config Release
+```
 
