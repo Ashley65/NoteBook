@@ -79,7 +79,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_stateController = new AppStateController(this);
     m_tabManager = new TabManager(this);
 
-    // 2. Ensure the stylesheet allows transparency
+    // Ensure the stylesheet allows transparency
     setStyleSheet("QMainWindow { background: transparent; }");
 
     // ============================================================
@@ -203,7 +203,6 @@ MainWindow::MainWindow(QWidget* parent)
     topLayout->addWidget(m_tabBar, 1, 1, 1, 1);
     topLayout->addWidget(m_menuButtonBar, 1, 2, 1, 1, Qt::AlignRight | Qt::AlignVCenter);
 
-
     // ============================================================
     // 3. SIDE BAR (.Side_bar)
     // ============================================================
@@ -212,7 +211,7 @@ MainWindow::MainWindow(QWidget* parent)
     mainLayout->addWidget(sideBarFrame, 1, 0, 2, 1);
 
     setupSideBar();
-    setupSidebarConnections();
+    setupSidebarConnections(); // (This now has the AppState forced-loading removed)
 
     // ============================================================
     // 4. CONTENT WINDOW (.Content_window)
@@ -220,15 +219,63 @@ MainWindow::MainWindow(QWidget* parent)
 
     m_mainContent = new MainContentView(m_workspaceRepo, this);
     mainLayout->addWidget(m_mainContent, 1, 1, 2, 2);
+    m_mainContent->installEventFilter(this);
 
-    // Ensure at least one workspace exists and set it active
+    // ============================================================
+    // 5. EVENT ROUTING & STARTUP
+    // ============================================================
+
+    // --- 5A. Tab Manager Routing (Must happen BEFORE adding initial tabs!) ---
+    connect(m_tabManager, &TabManager::tabOpened, this, [this](const QString& viewType, const QUuid& contextId) {
+        qDebug() << "Tab opened with viewType:" << viewType << "and contextId:" << contextId;
+
+        if (viewType == "Home") {
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
+            if (!ws.id.isNull()) {
+                m_mainContent->setActiveWorkspace(ws);
+                m_stateController->setActiveWorkspace(ws.id, ws.name);
+                if (m_sideBar) {
+                    m_sideBar->setWorkspaceId(ws.id);
+                    m_sideBar->setWorkspaceName(ws.name);
+                    m_sideBar->setActiveProjectId(QUuid());
+                }
+            }
+        } else if (viewType == "Project") {
+            const Project p = m_workspaceRepo->getProjectById(contextId);
+            if (!p.id.isNull()) {
+                const Workspace ws = m_workspaceRepo->getWorkspaceById(p.workspaceId);
+                if (!ws.id.isNull()) {
+                    m_stateController->setActiveWorkspace(ws.id, ws.name);
+                    if (m_sideBar) {
+                        m_sideBar->setWorkspaceId(ws.id);
+                        m_sideBar->setWorkspaceName(ws.name);
+                    }
+                }
+                m_mainContent->setActiveProject(p);
+                if (m_sideBar) {
+                    m_sideBar->setActiveProjectId(p.id);
+                }
+            }
+        }
+    });
+
+    // Handle Tab Destructions safely
+    connect(m_tabManager, &TabManager::tabDiscarded, this, [this](const QUuid& contextId) {
+        if (m_mainContent) {
+            m_mainContent->discardView(contextId);
+        }
+    });
+
+    // Optional: If you implemented the dynamic title signal in MainContentView!
+    // connect(m_mainContent, &MainContentView::viewTitleChanged, m_tabManager, &TabManager::updateTabTitle);
+
+    // --- 5B. Database Check / Seed Defaults ---
     auto workspaces = m_workspaceRepo->workspaces();
     if (workspaces.isEmpty()) {
         m_workspaceRepo->createWorkspace("Personal Workspace");
         workspaces = m_workspaceRepo->workspaces();
     }
 
-    // Seed a single component-test workspace for local UI experimentation.
     bool hasTestWorkspace = false;
     for (const Workspace& existingWorkspace : workspaces) {
         if (existingWorkspace.name == "Test Workspace") {
@@ -236,25 +283,47 @@ MainWindow::MainWindow(QWidget* parent)
             break;
         }
     }
-
     if (!hasTestWorkspace) {
-        m_workspaceRepo->createWorkspace(
-            "Test Workspace",
-            "lab",
-            "This is a test workspace created on app startup to demonstrate the workspace view functionality."
-        );
+        m_workspaceRepo->createWorkspace("Test Workspace", "lab", "This is a test workspace.");
+        workspaces = m_workspaceRepo->workspaces(); // Refresh list
     }
 
+    // --- 5C. Add Initial Tab From State ---
     if (!workspaces.isEmpty()) {
-        const Workspace& ws = workspaces.first();
-        m_stateController->setActiveWorkspace(ws.id, ws.name);
+        QUuid launchWorkspaceId = m_stateController->context().activeWorkspaceId;
 
-        m_tabManager->addTab(ws.name, "Home", ws.id, "#3B82F6");
+        // 1. Fallback to first workspace if state is empty
+        if (launchWorkspaceId.isNull()) {
+            launchWorkspaceId = workspaces.first().id;
+        }
+
+        // 2. Fetch project ID AFTER ensuring the workspace ID is valid
+        QUuid launchProjectId = m_stateController->lastProjectForWorkspace(launchWorkspaceId);
+
+        const Workspace launchWs = m_workspaceRepo->getWorkspaceById(launchWorkspaceId);
+
+        if (!launchProjectId.isNull()) {
+            // Restore last open project
+            const Project p = m_workspaceRepo->getProjectById(launchProjectId);
+            if (!p.id.isNull()) {
+                QString tabTitle = QString("%1 / %2").arg(launchWs.name, p.name);
+                m_tabManager->addTab(tabTitle, "Project", p.id, "#81C784");
+                m_tabManager->setActiveTabId(p.id); // Explicitly tell the manager this is the active tab
+            } else {
+                m_tabManager->addTab(launchWs.name, "Home", launchWs.id, "#3B82F6");
+                m_tabManager->setActiveTabId(launchWs.id); // Explicitly mark as active
+            }
+        } else {
+            // Restore home view
+            m_tabManager->addTab(launchWs.name, "Home", launchWs.id, "#3B82F6");
+            m_tabManager->setActiveTabId(launchWs.id); // Explicitly mark as active
+        }
     }
 
-    m_mainContent->installEventFilter(this);
+    // ============================================================
+    // 6. FLOATING UI AND THEME
+    // ============================================================
 
-    // Adding the floating toggle button for sidebar linked to content area
     m_floatingToggleButton = new QPushButton(m_mainContent);
     m_floatingToggleButton->setText("☰");
     m_floatingToggleButton->setToolTip("Show Sidebar");
@@ -271,6 +340,7 @@ MainWindow::MainWindow(QWidget* parent)
             background-color: #3A3D4D;
         }
     )");
+
     connect(m_floatingToggleButton, &QPushButton::clicked, this, [this]() {
         if (m_sideBar) {
             m_sideBar->setMode(SideBar::Mode::Default);
@@ -278,72 +348,9 @@ MainWindow::MainWindow(QWidget* parent)
         }
     });
 
-    connect(m_tabManager, &TabManager::tabOpened, this, [this](const QString& viewType, const QUuid& contextId) {
-        if (!m_mainContent || !m_workspaceRepo) return;
-        
-        qDebug() << "Tab opened with viewType:" << viewType << "and contextId:" << contextId;
-
-        if (viewType == "Home") {
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
-            if (!ws.id.isNull()) {
-                // 1. Tell MainContentView to specifically load the Home/General Workspace widget
-                m_mainContent->setActiveWorkspace(ws);
-
-                // 2. Update global state
-                if (m_stateController) {
-                    m_stateController->setActiveWorkspace(ws.id, ws.name);
-                }
-
-                // 3. Sync the Sidebar UI
-                if (m_sideBar) {
-                    m_sideBar->setWorkspaceId(ws.id);
-                    m_sideBar->setWorkspaceName(ws.name);
-                    m_sideBar->setActiveProjectId(QUuid());
-                }
-            }
-        } else if (viewType == "Project") {
-            const Project p = m_workspaceRepo->getProjectById(contextId);
-            if (!p.id.isNull()) {
-
-                // 1. Ensure the global app state knows which workspace this project belongs to
-                const Workspace ws = m_workspaceRepo->getWorkspaceById(p.workspaceId);
-                if (!ws.id.isNull()) {
-                    if (m_stateController) {
-                        m_stateController->setActiveWorkspace(ws.id, ws.name);
-                    }
-                    if (m_sideBar) {
-                        m_sideBar->setWorkspaceId(ws.id);
-                        m_sideBar->setWorkspaceName(ws.name);
-                    }
-                }
-
-                // 2. Tell MainContentView to load this specific Project widget (creates a new tab view)
-                m_mainContent->setActiveProject(p);
-
-                // 3. Highlight this specific project in the Sidebar
-                if (m_sideBar) {
-                    m_sideBar->setActiveProjectId(p.id);
-                }
-            }
-        }
-    });
-
-    connect(m_tabManager, &TabManager::tabDiscarded, this, [this](const QUuid& contextId) {
-        if (m_mainContent) {
-            m_mainContent->discardView(contextId);
-        }
-    });
-
-    connect(m_tabManager, &TabManager::tabClosed, this, [this](const QString& viewType, const QUuid& contextId) {
-        if (m_mainContent) {
-            m_mainContent->discardView(contextId);
-        }
-    });
-
     m_floatingToggleButton->hide();
 
     // Apply theme to topBarFrame on startup
-
     updateWindowTheme();
 }
 

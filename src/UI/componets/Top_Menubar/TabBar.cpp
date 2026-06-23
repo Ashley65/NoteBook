@@ -61,7 +61,5 @@ void TabBar::onTabSelected(const QUuid& contextId)
 
 void TabBar::onTabClosed(const QUuid& contextId)
 {
-    if (m_tabManager) {
-        m_tabManager->closeTab(contextId);
-    }
+    emit tabClosed(contextId);
 }

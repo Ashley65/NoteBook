@@ -2,12 +2,11 @@ import QtQuick 2.15
 import QtQuick.Layouts 1.15
 import QtQuick.Controls 2.15 as Controls
 
-
-Rectangle{
-
+Rectangle {
     id: topBarContainer
     property bool darkmode: true
 
+    // Background Styling
     gradient: Gradient {
         GradientStop {
             position: 0.0;
@@ -18,30 +17,9 @@ Rectangle{
             color: topBarContainer.darkmode ? "#161616" : "#efefef"
         }
     }
-
     color: topBarContainer.darkmode ? Qt.rgba(1, 1, 1, 0.04) : Qt.rgba(0, 0, 0, 0.06)
 
-    // radius: 10
-    // border.color: "#3B4048"
-    // border.width: 1
-
-    ListModel {
-        id: tabModel
-        ListElement { title: "Workspace Group"; projectColor: "#EF4444" }
-        ListElement { title: "Project: Test One"; projectColor: "#3B82F6" }
-        ListElement { title: "Project: General"; projectColor: "#EF4444" }
-        ListElement { title: "ChronoTasks Dashboard"; projectColor: "#F59E0B" }
-    }
-
-    function generateUUID() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            var r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    }
-
-    Controls.TabBar {
-        id: customTabBar
+    RowLayout {
         anchors.fill: parent
         anchors.leftMargin: 8
         anchors.rightMargin: 8
@@ -49,98 +27,117 @@ Rectangle{
         anchors.bottomMargin: 4
         spacing: 8
 
-        background: Rectangle { color: "transparent" }
+        // ---------------------------------------------------------
+        // 1. The Dynamic Tab List (Replacing Controls.TabBar)
+        // ---------------------------------------------------------
+        ListView {
+            id: tabListView
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-        Repeater{
-            model: tabManager.tabs
-            delegate: Controls.TabButton {
-                id: tabBtn
+            orientation: ListView.Horizontal
+            spacing: 8
+            clip: true // Hides tabs that overflow the screen width
 
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
+            // Connect safely to your C++ Brain
+            model: typeof tabManager !== "undefined" ? tabManager.tabs : null
+
+            // Smoothly animate tabs appearing and disappearing
+            add: Transition { NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200 } }
+            remove: Transition { NumberAnimation { property: "opacity"; from: 1; to: 0; duration: 200 } }
+            displaced: Transition { NumberAnimation { properties: "x,y"; duration: 200 } }
+
+            delegate: Item {
+                id: tabDelegate
+                height: ListView.view.height
                 width: contentRow.implicitWidth + 32
 
-                onClicked: tabManager.activeTabId = modelData.contextId
-                checked: modelData.contextId === tabManager.activeTabId
+                // State helpers
+                property bool isActive: typeof tabManager !== "undefined" && tabManager.activeTabId === modelData.contextId
+                property bool isHovered: hoverArea.containsMouse
 
-
-                hoverEnabled: true
-
-                contentItem: Item {
-                    RowLayout {
-                        id: contentRow
-                        anchors.centerIn: parent
-                        spacing: 8
-
-                        // The Project Color Dot
-                        Rectangle {
-                            width: 8
-                            height: 8
-                            radius: 4
-                            color: modelData.projectColour
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        // The Tab Text
-                        Text {
-                            text:  modelData.title
-                            color: tabBtn.checked ? "#FFFFFF" : "#A1A1AA"
-                            font.pixelSize: 14
-                            font.weight: tabBtn.checked ? Font.DemiBold : Font.Normal
-                            Layout.alignment: Qt.AlignVCenter
-                        }
-
-                        // Close button
-                        Item {
-                            width: 18
-                            height: parent.height
-                            Layout.alignment: Qt.AlignVCenter
-
-                            Text {
-                                id: closeLabel
-                                anchors.centerIn: parent
-                                text: "✕"
-                                color: tabBtn.hovered ? "#FFFFFF" : "#A1A1AA"
-                                font.pixelSize: 12
-                                visible: tabBtn.hovered || tabBtn.checked
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                z: 1
-                                hoverEnabled: true
-                                propagateComposedEvents: false
-                                onClicked: (mouse) => {
-                                    // Request the TabManager to close this tab
-                                    tabManager.closeTab(modelData.contextId)
-                                    console.log("Mock: Close Tab Clicked")
-                                    mouse.accepted = true
-                                }
-                                onPressed: (mouse) => {
-                                    // consume event so TabButton.onClicked doesn't fire
-                                    mouse.accepted = true
-                                }
-                            }
-                        }
-                    }
-                }
-                background: Rectangle {
-                    radius: 20 // This creates the fully rounded pill shape
-
-                    // Active tabs get a lighter background, inactive get a subtle outline
-                    color: tabBtn.checked ? "#27272A" : "transparent"
-                    border.color: tabBtn.checked ? "#3F3F46" : "#27272A"
+                // The Pill Background
+                Rectangle {
+                    anchors.fill: parent
+                    radius: height / 2
+                    color: isActive ? "#27272A" : "transparent"
+                    border.color: isActive ? "#3F3F46" : "#27272A"
                     border.width: 1
 
                     // Subtle hover effect for inactive tabs
                     Rectangle {
                         anchors.fill: parent
-                        radius: 20
+                        radius: parent.radius
                         color: "#FFFFFF"
-                        opacity: tabBtn.hovered && !tabBtn.checked ? 0.05 : 0.0
-                        Behavior on opacity {
-                            NumberAnimation {
-                                duration: 150
+                        opacity: isHovered && !isActive ? 0.05 : 0.0
+                        Behavior on opacity { NumberAnimation { duration: 150 } }
+                    }
+                }
+
+                // Main Tab Click Area
+                MouseArea {
+                    id: hoverArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: {
+                        if (typeof tabManager !== "undefined") {
+                            tabManager.activeTabId = modelData.contextId;
+                        }
+                    }
+                }
+
+                // Tab Content (Dot, Text, Close Button)
+                RowLayout {
+                    id: contentRow
+                    anchors.centerIn: parent
+                    spacing: 8
+
+                    // Project Color Dot
+                    Rectangle {
+                        width: 8
+                        height: 8
+                        radius: 4
+                        color: modelData.projectColour !== undefined ? modelData.projectColour : "#A1A1AA"
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    // Tab Title
+                    Text {
+                        text: modelData.title !== undefined ? modelData.title : "Unknown"
+                        color: isActive ? "#FFFFFF" : "#A1A1AA"
+                        font.pixelSize: 14
+                        font.weight: isActive ? Font.DemiBold : Font.Normal
+                        Layout.alignment: Qt.AlignVCenter
+                    }
+
+                    // Close Button
+                    Item {
+                        width: 18
+                        height: 18
+                        Layout.alignment: Qt.AlignVCenter
+                        visible: isHovered || isActive
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: "✕"
+                            // Turn red when hovering specifically over the close button
+                            color: closeArea.containsMouse ? "#EF4444" : (isActive ? "#FFFFFF" : "#A1A1AA")
+                            font.pixelSize: 12
+                        }
+
+                        MouseArea {
+                            id: closeArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+
+                            // Prevent click from leaking to the main tab area
+                            onPressed: mouse.accepted = true
+
+                            onClicked: {
+                                if (typeof tabManager !== "undefined") {
+                                    tabManager.closeTab(modelData.contextId);
+                                }
                             }
                         }
                     }
@@ -148,25 +145,40 @@ Rectangle{
             }
         }
 
-        Controls.TabButton{
-            id: addNewTabBtn
-            width: 40
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
+        // ---------------------------------------------------------
+        // 2. The Add New Tab Button
+        // ---------------------------------------------------------
+        Item {
+            Layout.preferredWidth: 40
+            Layout.fillHeight: true
 
-            text: "+"
+            Rectangle {
+                anchors.fill: parent
+                radius: height / 2
+                color: addNewTabBtnArea.containsMouse ? "#3B82F6" : "transparent"
+                Behavior on color { ColorAnimation { duration: 150 } }
 
-
-            onClicked: {
-                tabManager.addTab("New Tab", "Home", generateUUID(), "#3B82F6")
+                Text {
+                    anchors.centerIn: parent
+                    text: "+"
+                    color: addNewTabBtnArea.containsMouse ? "#FFFFFF" : "#A1A1AA"
+                    font.pixelSize: 18
+                }
             }
 
-            background: Rectangle {
-                radius: 20
-                color: addNewTabBtn.hovered ? "#3B82F6" : "transparent"
-
+            MouseArea {
+                id: addNewTabBtnArea
+                anchors.fill: parent
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                onClicked: {
+                    if (typeof tabManager !== "undefined") {
+                        // FIX: Use a constant zeroed UUID instead of generating a random one
+                        // This allows C++ findTabIndexByContextId to prevent duplicates!
+                        tabManager.addTab("New Tab", "Dashboard", "{00000000-0000-0000-0000-000000000000}", "#3B82F6");
+                    }
+                }
             }
         }
     }
-
 }

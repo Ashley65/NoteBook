@@ -4,6 +4,7 @@
         <file>qml/SideBar.qml</file>
         <file>qml/wsHomePage/HeaderSection.qml</file>
         <file>qml/wsHomeLinker.qml</file>
+        <file>qml/wsNoteEditorLinker.qml</file>
         <file>qml/wsHomePage/RecentNotesColumn.qml</file>
         <file>qml/wsHomePage/TaskFocusColumn.qml</file>
         <file>qml/warningBox/NoteDeletion.qml</file>
