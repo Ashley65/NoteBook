@@ -17,6 +17,32 @@ if (APPLE)
     endif()
 endif ()
 
+include(FetchContent)
+
+FetchContent_Declare(
+        md4c
+        GIT_REPOSITORY https://github.com/mity/md4c.git
+        GIT_TAG        release-0.5.2  # Changed from v0.5.2
+)
+
+FetchContent_MakeAvailable(md4c)
+
+set_target_properties(md4c PROPERTIES
+        AUTOMOC OFF
+        AUTOUIC OFF
+        AUTORCC OFF
+)
+set_target_properties(md4c-html PROPERTIES
+        AUTOMOC OFF
+        AUTOUIC OFF
+        AUTORCC OFF
+)
+
+set_target_properties(md2html PROPERTIES
+        AUTOMOC OFF
+        AUTOUIC OFF
+        AUTORCC OFF
+)
 
 find_package(Qt6 COMPONENTS
         Core
@@ -31,8 +57,6 @@ find_package(Qt6 COMPONENTS
         Network
         REQUIRED)
 
-
-
 set (SOURCE_FILES
         main.cpp
         src/UI/componets/Top_Menubar/windowsAction.cpp
@@ -45,6 +69,7 @@ set (SOURCE_FILES
         src/UI/componets/Side_Bar/Components/WorkspaceContextSection.cpp
         src/UI/componets/Side_Bar/Components/ProjectsSection.cpp
         src/UI/componets/Side_Bar/Components/FiltersSection.cpp
+        src/md4c/md4c.cpp
         src/UI/componets/Side_Bar/Components/FooterSection.cpp
         src/UI/componets/Content_Windows/MainContentView.cpp
         src/helpers/AppStateController.cpp
@@ -62,18 +87,19 @@ set (SOURCE_FILES
         src/UI/componets/Dialog/DropAreaWidget.cpp
         src/UI/componets/Dialog/UploadDialog.cpp
         src/Data/workspace/Manager/TabManager.cpp
-        src/UI/componets/Top_Menubar/TabBar.cpp)
+        src/UI/componets/Top_Menubar/TabBar.cpp
+        src/UI/componets/Content_Windows/Page/wsNotePage.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
-
 
 set (HEADER_FILES
         include/UI/components/Top_Menubar/topMenubar.h
         include/UI/components/Top_Menubar/windowsAction.h
         include/UI/components/Top_Menubar/NavigationBar.h
-        include/UI/components/Top_Menubar/InfoBar.h
+        include/UI/components/Top_Menubar/infoBar.h
         include/UI/mainWIndow.h
+        include/MD4C/mdAPI.h
         include/UI/components/Top_Menubar/MenuButtonBar.h
         include/UI/components/SIde_Bar/sideBar.h
         include/UI/components/SIde_Bar/componets/FooterSection.h
@@ -119,8 +145,12 @@ set (HEADER_FILES
         include/UI/components/Top_Menubar/TabBar.h
         include/Data/workspace/Manager/TabManager.h)
 
-add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES} )
+add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
+target_include_directories(taskHelper PRIVATE
+        ${md4c_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 
 target_link_libraries(taskHelper PRIVATE
         Qt6::Core
@@ -133,12 +163,9 @@ target_link_libraries(taskHelper PRIVATE
         Qt6::QuickControls2
         Qt6::Core5Compat
         Qt6::Network
-
+        md4c
+        md4c-html
 )
-
-target_include_directories(taskHelper PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
 
 if (WIN32)
     target_link_libraries(taskHelper PRIVATE Dwmapi)
@@ -155,61 +182,22 @@ if (APPLE)
     )
 endif()
 
+# --- NEW DEPLOYMENT LOGIC FOR WINDOWS ---
+if (WIN32)
+    # Locate the windeployqt tool provided by your Qt installation
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${CMAKE_PREFIX_PATH}/bin")
 
-if (WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
-    set(DEBUG_SUFFIX)
-    if (MSVC AND CMAKE_BUILD_TYPE MATCHES "Debug")
-        set(DEBUG_SUFFIX "d")
-    endif ()
-    set(QT_INSTALL_PATH "${CMAKE_PREFIX_PATH}")
-    if (NOT EXISTS "${QT_INSTALL_PATH}/bin")
-        set(QT_INSTALL_PATH "${QT_INSTALL_PATH}/..")
-        if (NOT EXISTS "${QT_INSTALL_PATH}/bin")
-            set(QT_INSTALL_PATH "${QT_INSTALL_PATH}/..")
-        endif ()
-    endif ()
-    if (EXISTS "${QT_INSTALL_PATH}/plugins/platforms/qwindows${DEBUG_SUFFIX}.dll")
+    if(WINDEPLOYQT_EXECUTABLE)
+        # Run windeployqt automatically after building the executable
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms/")
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy
-                "${QT_INSTALL_PATH}/plugins/platforms/qwindows${DEBUG_SUFFIX}.dll"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/platforms/")
-    endif ()
-
-    # Updated: Added QuickControls2Fusion to the list
-    foreach (QT_LIB Core Gui Widgets Svg Quick QuickWidgets Qml QmlModels QmlMeta QmlWorkerScript OpenGL Network QuickLayouts QuickControls2 QuickTemplates2 ShaderTools QuickShapes QuickControls2Impl QuickControls2Basic QuickControls2Fusion)
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy
-                "${QT_INSTALL_PATH}/bin/Qt6${QT_LIB}${DEBUG_SUFFIX}.dll"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
-    endforeach (QT_LIB)
-
-    # QtQuick/Shapes and QtQuick/NativeStyle are already here from previous step
-    set(QML_MODULES QtQuick/Layouts QtQuick/Controls QtQuick/Templates QtQuick/Window QtQuick/Shapes QtQuick/NativeStyle)
-    foreach(QML_MOD ${QML_MODULES})
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E make_directory
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/qml/${QML_MOD}")
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_directory
-                "${QT_INSTALL_PATH}/qml/${QML_MOD}"
-                "$<TARGET_FILE_DIR:${PROJECT_NAME}>/qml/${QML_MOD}")
-    endforeach()
-
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/iconengines/")
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy
-            "${QT_INSTALL_PATH}/plugins/iconengines/qsvgicon${DEBUG_SUFFIX}.dll"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/iconengines/")
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E make_directory
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/imageformats/")
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy
-            "${QT_INSTALL_PATH}/plugins/imageformats/qsvg${DEBUG_SUFFIX}.dll"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/plugins/imageformats/")
+                COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                --qmldir "${CMAKE_CURRENT_SOURCE_DIR}"
+                --no-translations
+                --no-compiler-runtime
+                "$<TARGET_FILE:${PROJECT_NAME}>"
+                COMMENT "Running windeployqt to automatically gather required DLLs and QML plugins..."
+        )
+    else()
+        message(WARNING "windeployqt not found! DLLs will not be copied automatically.")
+    endif()
 endif ()

@@ -24,7 +24,11 @@ public:
     void setActiveWorkspace(const Workspace& ws);
     void setActiveWorkspace(const AppContext& ctx);
     void setActiveProject(const Project& project);
+    void loadNoteView(const Note& note);
     void discardView(const QUuid& contextId);
+
+signals:
+    void noteOpenRequested(const QString& noteId);
 
 private:
     QHash<QUuid, IWorkspaceView*> views_;

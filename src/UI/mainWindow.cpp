@@ -221,6 +221,12 @@ MainWindow::MainWindow(QWidget* parent)
     mainLayout->addWidget(m_mainContent, 1, 1, 2, 2);
     m_mainContent->installEventFilter(this);
 
+    connect(m_mainContent, &MainContentView::noteOpenRequested, this, [this](const QString& noteId) {
+        if (m_tabManager) {
+            m_tabManager->addTab(tr("Edit Note"), "Note", QUuid::fromString(noteId), "#C586C0");
+        }
+    });
+
     // ============================================================
     // 5. EVENT ROUTING & STARTUP
     // ============================================================
@@ -255,6 +261,11 @@ MainWindow::MainWindow(QWidget* parent)
                 if (m_sideBar) {
                     m_sideBar->setActiveProjectId(p.id);
                 }
+            }
+        } else if (viewType == "Note") {
+            const Note note = m_workspaceRepo->getNoteById(contextId);
+            if (!note.id.isNull()) {
+                m_mainContent->loadNoteView(note);
             }
         }
     });

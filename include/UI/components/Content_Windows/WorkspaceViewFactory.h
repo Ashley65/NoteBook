@@ -10,6 +10,7 @@
 #include "WorkspaceView.h"
 #include "page/NetworkTestPage.h"
 #include "page/wsHomePage.h"
+#include "page/wsNotePage.h"
 
 class WorkspaceViewFactory
 {
@@ -20,7 +21,10 @@ public:
         QString type = ws.type.toLower();
         if (type == "lab" || type == "test") {
             return new NetworkTestPage(ws, parent);
-        } else {
+        }else if (type == "note") {
+            return new wsNotePage(ws, repo, parent);
+        }
+        else {
             return new wsHomePage(ws, repo, parent);
         }
     }

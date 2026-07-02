@@ -7,9 +7,13 @@
 #pragma once
 
 #include <QQuickWidget>
+#include <QDesktopServices>
+#include <QUrl>
 #include "../IWorkspaceView.h"
 #include "helpers/Workspace.h"
 #include "Data/workspace/Manager/NoteManager.h"
+#include "MD4C/mdAPI.h"
+
 
 class wsNotePage : public IWorkspaceView
 {
@@ -24,6 +28,8 @@ class wsNotePage : public IWorkspaceView
     Q_PROPERTY(QString currentNoteTitle READ currentNoteTitle NOTIFY currentNoteTitleChanged)
     Q_PROPERTY(QString currentNoteContent READ currentNoteContent NOTIFY currentNoteContentChanged)
     Q_PROPERTY(QString saveStatus READ saveStatus NOTIFY saveStatusChanged)
+
+    Q_PROPERTY(QVariantList linkedMentions READ linkedMentions NOTIFY linkedMentionsChanged)
 
 public:
 
@@ -40,6 +46,9 @@ public:
     Q_INVOKABLE void updateExistingNote(const QString& noteId, const QString& content);
     Q_INVOKABLE void updateNoteTitle(const QString& noteId, const QString& newTitle);
     Q_INVOKABLE void loadNote(const QString& noteId);
+    Q_INVOKABLE QString renderMarkdownToHtml(const QString& markdown);
+    Q_INVOKABLE void onLinkClicked(const QString& link);
+    Q_INVOKABLE QVariantList searchNotesByTitle(const QString& query);
 
     // Getters for QML Properties
     QString workspaceName() const;
@@ -48,6 +57,7 @@ public:
     QString currentNoteTitle() const;
     QString currentNoteContent() const;
     QString saveStatus() const;
+    QVariantList linkedMentions() const;
 
 
 signals:
@@ -58,6 +68,7 @@ signals:
     void currentNoteContentChanged();
     void saveStatusChanged();
     void draftCommitted(const QString& newId);
+    void linkedMentionsChanged();
 
 private:
     Workspace m_workspace;
@@ -73,6 +84,7 @@ private:
     QString m_currentNoteTitle = "";
     QString m_currentNoteContent = "";
     QString m_saveStatus = "State: In-Memory Draft (Unsaved)";
+    QVariantList m_linkedMentions;
 
     void setupUi();
     void populateData();

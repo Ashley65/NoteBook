@@ -4,6 +4,7 @@
 
 #include <UI/components/Content_Windows/MainContentView.h>
 #include <UI/components/Content_Windows/WorkspaceViewFactory.h>
+#include <UI/components/Content_Windows/page/wsNotePage.h>
 #include <helpers/Workspace.h>
 
 MainContentView::MainContentView(WorkspaceRepository* repo, QWidget* parent) : QStackedWidget(parent), m_repo(repo) {}
@@ -15,6 +16,12 @@ void MainContentView::setActiveWorkspace(const Workspace& ws)
     if (!views_.contains(ws.id)) {
         IWorkspaceView* view = WorkspaceViewFactory::createWorkspaceView(ws, m_repo, this);
         if (!view) return;
+
+        if (wsHomePage* homePage = qobject_cast<wsHomePage*>(view)) {
+            connect(homePage, &wsHomePage::noteOpenRequested, this, [this](const QString& noteId) {
+                emit noteOpenRequested(noteId);
+            });
+        }
 
         views_[ws.id] = view;
         addWidget(view);
@@ -63,6 +70,36 @@ void MainContentView::setActiveProject(const Project& project)
 
     // 5. Flip the QStackedWidget to the dedicated Project View
     setCurrentWidget(views_[project.id]);
+}
+
+void MainContentView::loadNoteView(const Note& note)
+{
+    if (!m_repo) return;
+
+    if (!views_.contains(note.id)) {
+        // We need the workspace to create the view
+        const Workspace ws = m_repo->getWorkspaceById(note.workspaceId);
+        if (ws.id.isNull()) return;
+
+        // Create a Note view (type "note" in factory)
+        Workspace noteWs = ws;
+        noteWs.type = "note";
+        IWorkspaceView* noteView = WorkspaceViewFactory::createWorkspaceView(noteWs, m_repo, this);
+        if (!noteView) return;
+
+        if (wsNotePage* page = qobject_cast<wsNotePage*>(noteView)) {
+            page->loadNote(note.id.toString(QUuid::WithoutBraces));
+        }
+
+        views_[note.id] = noteView;
+        addWidget(noteView);
+    } else {
+        if (wsNotePage* page = qobject_cast<wsNotePage*>(views_[note.id])) {
+            page->loadNote(note.id.toString(QUuid::WithoutBraces));
+        }
+    }
+
+    setCurrentWidget(views_[note.id]);
 }
 
 void MainContentView::discardView(const QUuid& contextId)

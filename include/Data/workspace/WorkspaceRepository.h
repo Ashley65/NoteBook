@@ -128,6 +128,8 @@ private:
     [[nodiscard]] bool ensureProjectDir(const QUuid& workspaceId, const QUuid& projectId) const;
 
     // File-based persistence helpers
+    [[nodiscard]] QString noteFilePath(const Note& note) const;
+    [[nodiscard]] QString readNoteContentFromFile(const Note& note) const;
     void saveNoteToFile(const Note& note) const;
     void removeNoteFromFile(const Note& note) const;
     [[nodiscard]] QString storeAttachmentFile(const FileAttachment& attachment) const;

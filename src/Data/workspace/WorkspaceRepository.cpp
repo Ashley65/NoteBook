@@ -243,9 +243,17 @@ QUuid WorkspaceRepository::createNote(const Note& note) {
 void WorkspaceRepository::updateNote(const Note& note) {
     for (int i = 0; i < notes_.size(); ++i) {
         if (notes_[i].id == note.id) {
+            const Note previousNote = notes_[i];
             notes_[i] = note;
+            if (notes_[i].projectId.isNull()) {
+                notes_[i].projectId = previousNote.projectId;
+            }
             notes_[i].updatedAt = QDateTime::currentDateTime();
             saveNotes();
+
+            if (previousNote.workspaceId != notes_[i].workspaceId || previousNote.projectId != notes_[i].projectId) {
+                removeNoteFromFile(previousNote);
+            }
 
             // LINK: Update note content on disk
             saveNoteToFile(notes_[i]);
@@ -614,6 +622,7 @@ void WorkspaceRepository::loadTasks()
 void WorkspaceRepository::saveNotes()
 {
     QSettings s("data.ini", QSettings::IniFormat);
+    s.remove("notes");
     s.beginWriteArray("notes");
 
     for (int i = 0; i < notes_.size(); ++i) {
@@ -622,7 +631,6 @@ void WorkspaceRepository::saveNotes()
         s.setValue("workspaceId", notes_[i].workspaceId.toString(QUuid::WithoutBraces));
         s.setValue("projectId", notes_[i].projectId.toString(QUuid::WithoutBraces));
         s.setValue("title", notes_[i].title);
-        s.setValue("content", notes_[i].content);
         s.setValue("preview", notes_[i].preview);
         s.setValue("isPinned", notes_[i].isPinned);
         s.setValue("isArchived", notes_[i].isArchived);
@@ -648,12 +656,19 @@ void WorkspaceRepository::loadNotes()
         note.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
         note.projectId = QUuid::fromString(s.value("projectId").toString());
         note.title = s.value("title").toString();
-        note.content = s.value("content").toString();
         note.preview = s.value("preview").toString();
         note.isPinned = s.value("isPinned", false).toBool();
         note.isArchived = s.value("isArchived", false).toBool();
         note.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
         note.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
+        note.content = readNoteContentFromFile(note);
+        if (note.content.isEmpty() && s.contains("content")) {
+            note.content = s.value("content").toString();
+            saveNoteToFile(note);
+        }
+        if (note.preview.isEmpty()) {
+            note.preview = note.content.left(160);
+        }
         notes_.append(note);
     }
 
@@ -807,10 +822,25 @@ bool WorkspaceRepository::ensureProjectDir(const QUuid &workspaceId, const QUuid
 
 }
 
+QString WorkspaceRepository::noteFilePath(const Note& note) const {
+    const QString notePath = QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes");
+    return QDir(notePath).filePath(uuidKey(note.id) + ".md");
+}
+
+QString WorkspaceRepository::readNoteContentFromFile(const Note& note) const {
+    QFile file(noteFilePath(note));
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return {};
+    }
+
+    return QString::fromUtf8(file.readAll());
+}
+
 void WorkspaceRepository::saveNoteToFile(const Note& note) const {
     // LINK: Save note content to disk as markdown file
-    QString notePath = QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes");
-    QString noteFile = QDir(notePath).filePath(uuidKey(note.id) + ".md");
+    QDir notesDir(QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes"));
+    notesDir.mkpath(".");
+    const QString noteFile = noteFilePath(note);
 
     QFile file(noteFile);
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -821,10 +851,7 @@ void WorkspaceRepository::saveNoteToFile(const Note& note) const {
 
 void WorkspaceRepository::removeNoteFromFile(const Note& note) const {
     // LINK: Remove note file from disk
-    QString notePath = QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes");
-    QString noteFile = QDir(notePath).filePath(uuidKey(note.id) + ".md");
-
-    QFile::remove(noteFile);
+    QFile::remove(noteFilePath(note));
 }
 
 QString WorkspaceRepository::storeAttachmentFile(const FileAttachment& attachment) const {
@@ -1008,4 +1035,3 @@ void WorkspaceRepository::cleanUpOrphanedData()
 {
     deleteAllOrphanedFiles();
 }
-

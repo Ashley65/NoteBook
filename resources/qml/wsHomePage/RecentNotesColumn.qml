@@ -2,7 +2,7 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-import "qrc:/qml/warningBox" as WarningBox
+import "../warningBox" as WarningBox
 
 Rectangle {
     id: root
@@ -49,9 +49,8 @@ Rectangle {
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: function(mouse) {
-                        // ignore clicks if no id or wsHomePage is not available
                         if (typeof wsHomePage !== "undefined" && noteCard.noteId) {
-                            console.log("Mock: Upload File Dialog Triggered")
+                            wsHomePage.openNote(noteCard.noteId)
                         }
                         mouse.accepted = true
                     }
