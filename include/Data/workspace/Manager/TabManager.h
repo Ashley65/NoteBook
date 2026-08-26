@@ -34,9 +34,12 @@ public:
     [[nodiscard]] QUuid activeTabId() const { return m_activeTabId; }
 
     Q_INVOKABLE void addTab(const QString& title, const QString& viewType, const QUuid& contextId, const QString& projectColour);
+    Q_INVOKABLE void navigateActiveTab(const QString& title, const QString& viewType, const QUuid& contextId, const QString& projectColour);
     Q_INVOKABLE void closeTab(const QUuid& contextId);
     Q_INVOKABLE void setActiveTabId(const QUuid& contextId);
     Q_INVOKABLE void discardOldTabs(int maxActiveTabs = 10);
+    Q_INVOKABLE void openNewTab();
+    Q_INVOKABLE void updateTabTitle(const QUuid& contextId, const QString& newTitle);
     Q_INVOKABLE void openLink(const QString& title, const QString& viewType, const QString& contextIdStr)
     {
         QUuid id = QUuid::fromString(contextIdStr);

@@ -1,56 +1,63 @@
-# NoteBook
+# NoteBook / Taskhelper
 
-NoteBook is a high-performance, multi-platform productivity application designed for seamless workspace and task management. Built with C++20 and Qt 6, it provides a modern, responsive interface for organizing projects, notes, and workflows efficiently.
+NoteBook is a high-performance productivity application designed for seamless workspace, project, task, and note management. Built with C++20 and Qt 6 for desktop platforms, and HTML5/JS/CSS for modern Web browsers.
 
-## Key Features
+---
 
--   **Workspace Management**: Create and switch between multiple isolated workspaces to keep different areas of your life or work organized.
--   **Project & Task Tracking**: Organize your work into projects with granular task tracking, priority levels (Low, Medium, High), and due dates.
--   **Note Taking**: Integrated note-taking system with support for pinning, archiving, and categorizing notes within specific projects.
--   **File Attachments**: Attach documents and media directly to your projects and notes for centralized access.
--   **Native Experience**: 
-    -   **Windows**: Enhanced with Mica effects, dark mode title bar support, and rounded corners for a modern Windows 11 feel.
-    -   **macOS**: Full bundle support with native integration.
--   **Hybrid UI**: Combines the power of Qt Widgets for complex logic with the flexibility of Qt Quick/QML for smooth, dynamic UI components.
--   **Data Integrity**: Automatic cleanup of orphaned files and structured data persistence to ensure your workspace remains clean and reliable.
+## 🌟 Features
 
-## Built With
+- **Workspace Management**: Create and switch between isolated workspaces.
+- **Project & Task Tracking**: Granular task tracking with priority levels (Low, Medium, High), due dates, and Kanban status columns (To Do, In Progress, Completed).
+- **Markdown Note Taking**: Integrated note-taking system with live Markdown rendering, pinning, and searching.
+- **LocalStorage & Data Backup**: Client-side offline data persistence with instant JSON Export and Import capabilities.
+- **Cloud Readiness**: Storage layer abstracted via `StorageAdapter` for seamless connection to a C# REST API backend.
+- **Cross-Platform & Web**:
+  - **Desktop**: C++20 + Qt 6 (Windows Mica dark mode, macOS native bundle).
+  - **Web Application**: Responsive glassmorphism web UI runnable locally or hostable on Cloudflare Pages.
 
--   **C++20**: Utilizing modern language features for performance and safety.
--   **Qt 6.11.0**: Core, Widgets, Quick (QML), Svg, Network, and Core5Compat.
--   **CMake**: Robust build system for cross-platform compatibility.
+---
 
-## Prerequisites
+## 🌐 Web Version (`web/`)
 
-Ensure you have the following installed:
--   **CMake** (v3.16 or higher)
--   **Qt 6.11.0** (with modules: `qtbase`, `qtsvg`, `qtdeclarative`, `qtnetwork`)
--   **Compiler**: 
-    -   Windows: MSVC 2022
-    -   Linux: GCC or Clang
-    -   macOS: Apple Clang
+The web application resides in the `web/` directory and can be used in any modern browser.
 
-## Getting Started
+### 1. Run Locally
+You can run the web version locally using Node / NPX or any static web server:
 
-### 1. Clone the repository
 ```bash
-git clone https://github.com/Ashley65/NoteBook.git
-cd NoteBook
+cd web
+npm run dev
 ```
-
-### 2. Configure the project
-**Windows (MSVC):**
-```powershell
-cmake -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.11.0/msvc2022_64" -G "Visual Studio 17 2022"
-```
-
-**Linux/macOS:**
+Or with Python:
 ```bash
-cmake -B build -DCMAKE_PREFIX_PATH=/path/to/Qt6
+cd web
+python -m http.server 3000
 ```
+Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 3. Build the application
+### 2. Host on Cloudflare Pages
+Deploying to Cloudflare Pages is zero-config using Wrangler:
+
 ```bash
+cd web
+npx wrangler pages deploy . --project-name=notebook-app
+```
+Alternatively, link your GitHub repository to Cloudflare Pages dashboard with `web` as the build output directory.
+
+---
+
+## 💻 Desktop Prerequisites & Build (C++ / Qt)
+
+### Prerequisites
+- **CMake** (v3.16 or higher)
+- **Qt 6.11.0** (modules: `qtbase`, `qtsvg`, `qtdeclarative`, `qtnetwork`)
+- **Compiler**: MSVC 2022 (Windows), GCC/Clang (Linux/macOS)
+
+### Build Desktop App
+```bash
+# Configure
+cmake -B build -DCMAKE_PREFIX_PATH="C:/Qt/6.11.0/msvc2022_64"
+
+# Build
 cmake --build build --config Release
 ```
-

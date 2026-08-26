@@ -27,7 +27,7 @@ signals:
 
 public:
     explicit MenuButtonBar(QWidget *parent = nullptr);
-    void setButtonStyleSheet(const QString &css);
+    void setButtonStyleSheet(const QString &css) const;
     QMenu *menuBar() const;
 };
 

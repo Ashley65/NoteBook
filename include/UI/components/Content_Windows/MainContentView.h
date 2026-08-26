@@ -26,6 +26,8 @@ public:
     void setActiveProject(const Project& project);
     void loadNoteView(const Note& note);
     void discardView(const QUuid& contextId);
+    void setBorderColor(const QString& colorHex);
+    QString borderColor() const { return m_borderColor; }
 
 signals:
     void noteOpenRequested(const QString& noteId);
@@ -34,5 +36,6 @@ private:
     QHash<QUuid, IWorkspaceView*> views_;
     WorkspaceRepository* m_repo {nullptr};
     Project m_activeProject;
+    QString m_borderColor { "#6366F1" };
 };
 #endif //TASKHELPER_MAINCONTENTVIEW_H

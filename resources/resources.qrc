@@ -27,6 +27,10 @@
         <file>icons/inbox.svg</file>
         <file>icons/star.svg</file>
         <file>icons/dashboard.svg</file>
+        <file>icons/projects.svg</file>
+        <file>icons/taskboard.svg</file>
+        <file>icons/notes.svg</file>
+        <file>icons/aiassistant.svg</file>
         <file>icons/menu_open.svg</file>
         <file>icons/calendar.svg</file>
         <file>icons/edit_calendar.svg</file>
@@ -37,6 +41,9 @@
         <file>icons/alert.svg</file>
         <file>icons/filter.svg</file>
         <file>icons/check.svg</file>
-        <file>icons/split_view.svg</file>
+        <file>icons/sidebar_collapse.svg</file>
+        <file>icons/switch_workspace.svg</file>
+        <file>icons/create_workspace.svg</file>
+        <file>icons/settings.svg</file>
     </qresource>
 </RCC>

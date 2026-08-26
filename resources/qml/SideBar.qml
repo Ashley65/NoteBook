@@ -38,28 +38,28 @@ Rectangle {
         }
 
         // --- 1. CORE NAVIGATION SECTION ---
-        ColumnLayout {
-            Layout.fillWidth: true
-            Layout.topMargin: 20
-            spacing: 2
-
-            Repeater {
-                model: ListModel {
-                    ListElement {name: "Inbox"; icon: "📥"; active: false}
-                    ListElement { name: "Today"; icon: "⭐"; active: true } // Selected in your image
-                    ListElement { name: "Upcoming"; icon: "📅"; active: false }
-                    ListElement { name: "Dashboard"; icon: "📊"; active: false }
-                }
-
-                delegate: SidebarItem {
-                    text: model.name || ""
-                    iconSource: model.icon || ""
-                    isSelected: model.active || false
-                    compact: sidebarRoot.isCompact
-                    onClicked: sideBar.onItemClicked("core", model.name || "")
-                }
-            }
-        }
+        // ColumnLayout {
+        //     Layout.fillWidth: true
+        //     Layout.topMargin: 20
+        //     spacing: 2
+        //
+        //     Repeater {
+        //         model: ListModel {
+        //             ListElement {name: "Inbox"; icon: "📥"; active: false}
+        //             ListElement { name: "Today"; icon: "⭐"; active: true } // Selected in your image
+        //             ListElement { name: "Upcoming"; icon: "📅"; active: false }
+        //             ListElement { name: "Dashboard"; icon: "📊"; active: false }
+        //         }
+        //
+        //         delegate: SidebarItem {
+        //             text: model.name || ""
+        //             iconSource: model.icon || ""
+        //             isSelected: model.active || false
+        //             compact: sidebarRoot.isCompact
+        //             onClicked: sideBar.onItemClicked("core", model.name || "")
+        //         }
+        //     }
+        // }
 
         // --- 2. SCROLLABLE CONTENT (Projects & Filters) ---
         ScrollView {
@@ -124,75 +124,75 @@ Rectangle {
                 }
 
                 // FILTERS GROUP
-                SidebarSection {
-                    width: parent.width
-                    title: "Filters"
-                    compact: sidebarRoot.isCompact
-
-                    model: ListModel {
-                        ListElement { name: "High Priority"; colorCode: "#FF4500"; code: "HP"; icon: "" }
-                        ListElement { name: "Overdue"; colorCode: "#FF8C00"; code: "OV"; icon: "" }
-                        ListElement { name: "No Due Date"; colorCode: "#A9A9A9"; code: "ND"; icon: "" }
-                        ListElement { name: "Completed"; colorCode: "#32CD32"; code: "OK"; icon: "" }
-                    }
-
-                    delegate: SidebarItem {
-                        width: sidebarRoot.width - 20 // FORCE width for delegate
-                        text: model.name || ""
-                        useAvatar: true
-                        avatarColor: model.colorCode || "transparent"
-                        avatarText: sidebarRoot.isCompact ? (model.code || "") : "🏳️" // Flag or code
-                        compact: sidebarRoot.isCompact
-                        onClicked: sideBar.onItemClicked("filter", model.name || "")
-                    }
-                }
+                // SidebarSection {
+                //     width: parent.width
+                //     title: "Filters"
+                //     compact: sidebarRoot.isCompact
+                //
+                //     model: ListModel {
+                //         ListElement { name: "High Priority"; colorCode: "#FF4500"; code: "HP"; icon: "" }
+                //         ListElement { name: "Overdue"; colorCode: "#FF8C00"; code: "OV"; icon: "" }
+                //         ListElement { name: "No Due Date"; colorCode: "#A9A9A9"; code: "ND"; icon: "" }
+                //         ListElement { name: "Completed"; colorCode: "#32CD32"; code: "OK"; icon: "" }
+                //     }
+                //
+                //     delegate: SidebarItem {
+                //         width: sidebarRoot.width - 20 // FORCE width for delegate
+                //         text: model.name || ""
+                //         useAvatar: true
+                //         avatarColor: model.colorCode || "transparent"
+                //         avatarText: sidebarRoot.isCompact ? (model.code || "") : "🏳️" // Flag or code
+                //         compact: sidebarRoot.isCompact
+                //         onClicked: sideBar.onItemClicked("filter", model.name || "")
+                //     }
+                // }
             }
         }
 
         // --- 3. FOOTER SECTION ---
-        Rectangle {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 60
-            color: "transparent"
-
-            RowLayout {
-                anchors.fill: parent
-                anchors.margins: 10
-                spacing: 15
-
-                // Hamburger / Sidebar Toggle
-                Button {
-                    text: "☰"
-                    background: Rectangle { color: "transparent" }
-                    contentItem: Text {
-                        text: parent.text; color: "#7aa2f7"; font.pixelSize: 20
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                    Layout.preferredWidth: 40
-                    onClicked: sideBar.onToggleMode()
-                }
-
-                // Footer Text (Hidden in compact)
-                ColumnLayout {
-                    visible: !sidebarRoot.isCompact
-                    Layout.fillWidth: true
-                    opacity: visible ? 1.0 : 0.0
-                    Behavior on opacity { NumberAnimation { duration: 150 } }
-
-                    Text {
-                        text: ""
-                        color: "#c0caf5"
-                        font.bold: true
-                        font.pixelSize: 14
-                    }
-                    RowLayout {
-                        Rectangle { width: 6; height: 6; radius: 3; color: "#9ece6a" } // Green dot
-                        Text { text: "Synced"; color: "#565f89"; font.pixelSize: 12 }
-                    }
-                }
-            }
-        }
+        // Rectangle {
+        //     Layout.fillWidth: true
+        //     Layout.preferredHeight: 60
+        //     color: "transparent"
+        //
+        //     RowLayout {
+        //         anchors.fill: parent
+        //         anchors.margins: 10
+        //         spacing: 15
+        //
+        //         // Hamburger / Sidebar Toggle
+        //         Button {
+        //             text: "☰"
+        //             background: Rectangle { color: "transparent" }
+        //             contentItem: Text {
+        //                 text: parent.text; color: "#7aa2f7"; font.pixelSize: 20
+        //                 horizontalAlignment: Text.AlignHCenter
+        //                 verticalAlignment: Text.AlignVCenter
+        //             }
+        //             Layout.preferredWidth: 40
+        //             onClicked: sideBar.onToggleMode()
+        //         }
+        //
+        //         // Footer Text (Hidden in compact)
+        //         ColumnLayout {
+        //             visible: !sidebarRoot.isCompact
+        //             Layout.fillWidth: true
+        //             opacity: visible ? 1.0 : 0.0
+        //             Behavior on opacity { NumberAnimation { duration: 150 } }
+        //
+        //             Text {
+        //                 text: ""
+        //                 color: "#c0caf5"
+        //                 font.bold: true
+        //                 font.pixelSize: 14
+        //             }
+        //             RowLayout {
+        //                 Rectangle { width: 6; height: 6; radius: 3; color: "#9ece6a" } // Green dot
+        //                 Text { text: "Synced"; color: "#565f89"; font.pixelSize: 12 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     // --- HELPER COMPONENT: Sidebar Item (The Row) ---

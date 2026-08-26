@@ -122,6 +122,7 @@ private:
     static QString uuidKey (const QUuid& id) { return id.toString(QUuid::WithoutBraces);}
 
     [[nodiscard]] QString dataRootPath() const;
+    [[nodiscard]] QString settingsFilePath() const;
 
     [[nodiscard]] QString projectPath(const QUuid& workspaceId, const QUuid& projectId) const;
 

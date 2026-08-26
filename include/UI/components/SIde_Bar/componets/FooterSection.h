@@ -25,6 +25,8 @@ public:
     // Call this when the sidebar mode changes so the button icon can update
     void setMode(SideBar::Mode mode);
 
+
+
     signals:
         // Signal to tell the parent (SideBar) to switch modes
         void modeCycleRequested();

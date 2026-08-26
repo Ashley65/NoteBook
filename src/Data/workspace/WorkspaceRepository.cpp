@@ -464,7 +464,7 @@ void WorkspaceRepository::deleteTask(const QUuid& id) {
 
 void WorkspaceRepository::saveWorkspaces()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     s.beginWriteArray("workspaces");
 
     for (int i = 0; i < workspaces_.size(); ++i) {
@@ -493,7 +493,7 @@ void WorkspaceRepository::saveWorkspaces()
 
 void WorkspaceRepository::loadWorkspaces()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     int count = s.beginReadArray("workspaces");
 
     // clear existing list to prevent duplicates
@@ -527,7 +527,7 @@ void WorkspaceRepository::loadWorkspaces()
 
 void WorkspaceRepository::saveProjects()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     s.beginWriteArray("projects");
 
     for (int i = 0; i < projects_.size(); ++i) {
@@ -547,7 +547,7 @@ void WorkspaceRepository::saveProjects()
 
 void WorkspaceRepository::loadProjects()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     int count = s.beginReadArray("projects");
 
     projects_.clear();
@@ -570,7 +570,7 @@ void WorkspaceRepository::loadProjects()
 
 void WorkspaceRepository::saveTasks()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     s.beginWriteArray("tasks");
 
     for (int i = 0; i < tasks_.size(); ++i) {
@@ -593,7 +593,7 @@ void WorkspaceRepository::saveTasks()
 
 void WorkspaceRepository::loadTasks()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     int count = s.beginReadArray("tasks");
 
     // clear existing list to prevent duplicates
@@ -621,7 +621,7 @@ void WorkspaceRepository::loadTasks()
 
 void WorkspaceRepository::saveNotes()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     s.remove("notes");
     s.beginWriteArray("notes");
 
@@ -644,7 +644,7 @@ void WorkspaceRepository::saveNotes()
 
 void WorkspaceRepository::loadNotes()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     int count = s.beginReadArray("notes");
 
     notes_.clear();
@@ -678,7 +678,7 @@ void WorkspaceRepository::loadNotes()
 
 void WorkspaceRepository::saveAttachments()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     s.beginWriteArray("attachments");
 
     for (int i = 0; i < attachments_.size(); ++i) {
@@ -701,7 +701,7 @@ void WorkspaceRepository::saveAttachments()
 
 void WorkspaceRepository::loadAttachments()
 {
-    QSettings s("data.ini", QSettings::IniFormat);
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
     int count = s.beginReadArray("attachments");
 
     attachments_.clear();
@@ -808,7 +808,14 @@ QUuid WorkspaceRepository::defaultProjectForWorkspace(const QUuid& workspaceId) 
 
 QString WorkspaceRepository::dataRootPath() const {
     const QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    return QDir(base).filePath("TaskHelperData/workspace");
+    QDir().mkpath(base);
+    const QString fullPath = QDir(base).filePath("TaskHelperData/workspace");
+    QDir().mkpath(fullPath);
+    return fullPath;
+}
+
+QString WorkspaceRepository::settingsFilePath() const {
+    return QDir(dataRootPath()).filePath("data.ini");
 }
 
 QString WorkspaceRepository::projectPath(const QUuid &workspaceId, const QUuid &projectId) const {

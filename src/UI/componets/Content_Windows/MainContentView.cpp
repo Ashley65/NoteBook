@@ -7,7 +7,24 @@
 #include <UI/components/Content_Windows/page/wsNotePage.h>
 #include <helpers/Workspace.h>
 
-MainContentView::MainContentView(WorkspaceRepository* repo, QWidget* parent) : QStackedWidget(parent), m_repo(repo) {}
+MainContentView::MainContentView(WorkspaceRepository* repo, QWidget* parent) : QStackedWidget(parent), m_repo(repo)
+{
+    setObjectName("mainContentView");
+    setBorderColor("#6366F1");
+}
+
+void MainContentView::setBorderColor(const QString& colorHex)
+{
+    m_borderColor = colorHex;
+    setStyleSheet(QString(R"(
+        QStackedWidget#mainContentView {
+            border: 1.5px solid %1;
+            border-radius: 8px;
+            background-color: transparent;
+            margin: 0px;
+        }
+    )").arg(colorHex));
+}
 
 void MainContentView::setActiveWorkspace(const Workspace& ws)
 {

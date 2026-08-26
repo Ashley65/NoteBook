@@ -1,3 +1,4 @@
+set(QT_NO_EMSCRIPTEN_VERSION_CHECK ON CACHE BOOL "" FORCE)
 cmake_minimum_required(VERSION 3.16)
 project(taskHelper)
 
@@ -6,8 +7,10 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-if (WIN32)
-    set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
+if (NOT DEFINED CMAKE_PREFIX_PATH)
+    if (WIN32 AND NOT EMSCRIPTEN)
+        set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
+    endif ()
 endif ()
 if (APPLE)
     if (DEFINED ENV{QT_PATH})
@@ -18,6 +21,7 @@ if (APPLE)
 endif ()
 
 include(FetchContent)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "Force static libraries for WASM" FORCE)
 
 FetchContent_Declare(
         md4c
@@ -65,12 +69,11 @@ set (SOURCE_FILES
         src/UI/componets/Top_Menubar/NavigationBar.cpp
         src/UI/componets/Top_Menubar/MenuButtonBar.cpp
         src/UI/componets/Side_Bar/sideBar.cpp
-        src/UI/componets/Side_Bar/Components/CoreNavigationSection.cpp
+        #src/UI/componets/Side_Bar/Components/CoreNavigationSection.cpp
         src/UI/componets/Side_Bar/Components/WorkspaceContextSection.cpp
         src/UI/componets/Side_Bar/Components/ProjectsSection.cpp
         src/UI/componets/Side_Bar/Components/FiltersSection.cpp
         src/md4c/md4c.cpp
-        src/UI/componets/Side_Bar/Components/FooterSection.cpp
         src/UI/componets/Content_Windows/MainContentView.cpp
         src/helpers/AppStateController.cpp
         src/Data/workspace/WorkspaceRepository.cpp
@@ -88,7 +91,10 @@ set (SOURCE_FILES
         src/UI/componets/Dialog/UploadDialog.cpp
         src/Data/workspace/Manager/TabManager.cpp
         src/UI/componets/Top_Menubar/TabBar.cpp
-        src/UI/componets/Content_Windows/Page/wsNotePage.cpp)
+        src/UI/componets/Content_Windows/Page/wsNotePage.cpp
+        src/UI/componets/Side_Bar/nu_componets/CoreNavigationSection.cpp
+        src/UI/componets/Side_Bar/nu_componets/FooterSection.cpp
+        src/UI/componets/Side_Bar/nu_componets/ProjectsSection.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -102,10 +108,10 @@ set (HEADER_FILES
         include/MD4C/mdAPI.h
         include/UI/components/Top_Menubar/MenuButtonBar.h
         include/UI/components/SIde_Bar/sideBar.h
-        include/UI/components/SIde_Bar/componets/FooterSection.h
+        #include/UI/components/SIde_Bar/componets/FooterSection.h
         include/UI/components/SIde_Bar/componets/FiltersSection.h
         include/UI/components/SIde_Bar/componets/ProjectsSection.h
-        include/UI/components/SIde_Bar/componets/CoreNavigationSection.h
+        #include/UI/components/SIde_Bar/componets/CoreNavigationSection.h
         include/UI/components/SIde_Bar/componets/WorkspaceContextSection.h
         include/UI/components/SIde_Bar/componets/BaseNavTree.h
         include/helpers/IconHelper.h
@@ -143,9 +149,18 @@ set (HEADER_FILES
         include/UI/components/Dialogs/DropAreaWidget.h
         include/UI/components/Content_Windows/page/wsNotePage.h
         include/UI/components/Top_Menubar/TabBar.h
-        include/Data/workspace/Manager/TabManager.h)
+        include/Data/workspace/Manager/TabManager.h
+        include/UI/components/SIde_Bar/nu_componets/BaseNavTree.h
+        include/UI/components/SIde_Bar/nu_componets/CoreNavigationSection.h
+        include/UI/components/SIde_Bar/nu_componets/FooterSection.h
 
-add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
+        include/UI/components/SIde_Bar/SideBarMode.h
+        include/UI/components/SIde_Bar/nu_componets/ProjectSection.h
+        include/UI/components/Content_Windows/page/wsProjectPage.h
+        include/UI/components/Content_Windows/page/wsNoteListPage.h
+        include/UI/components/Content_Windows/page/wsTaskBoardPage.h)
+
+qt_add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
 target_include_directories(taskHelper PRIVATE
         ${md4c_SOURCE_DIR}/src
@@ -167,9 +182,18 @@ target_link_libraries(taskHelper PRIVATE
         md4c-html
 )
 
-if (WIN32)
+if (WIN32 AND NOT EMSCRIPTEN)
     target_link_libraries(taskHelper PRIVATE Dwmapi)
     target_compile_definitions(taskHelper PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
+endif()
+
+if (EMSCRIPTEN)
+    set(QT_EMSDK_PATH "C:/emsdk" CACHE PATH "" FORCE)
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/wasm_multithread")
+    set_target_properties(taskHelper PROPERTIES 
+        SUFFIX ".js"
+        LINK_FLAGS "-sALLOW_MEMORY_GROWTH=1 -pthread"
+    )
 endif()
 
 if (APPLE)

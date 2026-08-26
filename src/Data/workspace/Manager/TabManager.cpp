@@ -65,6 +65,55 @@ void TabManager::addTab(const QString& title, const QString& viewType, const QUu
     discardOldTabs(5); // Keep at most 5 heavy views active
 }
 
+void TabManager::navigateActiveTab(const QString& title, const QString& viewType, const QUuid& contextId,
+    const QString& projectColour)
+{
+    const int activeIndex = findTabIndexByContextId(m_activeTabId);
+    const int existingIndex = findTabIndexByContextId(contextId);
+
+    // If this context is already open in a DIFFERENT tab, switch to it
+    if (existingIndex != -1 && existingIndex != activeIndex) {
+        m_tabs[existingIndex].title = title;
+        m_tabs[existingIndex].projectColour = projectColour;
+        emit tabsChanged();
+        setActiveTabId(contextId);
+        return;
+    }
+
+    if (activeIndex != -1) {
+        // Reuse and update the current active tab
+        m_tabs[activeIndex].title = title;
+        m_tabs[activeIndex].viewType = viewType;
+        m_tabs[activeIndex].contextId = contextId;
+        m_tabs[activeIndex].projectColour = projectColour;
+        m_tabs[activeIndex].lastAccessed = QDateTime::currentDateTime();
+
+        m_activeTabId = contextId;
+        emit tabsChanged();
+        emit activeTabIdChanged();
+        emit tabOpened(viewType, contextId);
+        discardOldTabs(5);
+    } else {
+        // No active tab exists yet, fallback to creating one
+        addTab(title, viewType, contextId, projectColour);
+    }
+}
+
+void TabManager::openNewTab()
+{
+    const QUuid newId = QUuid::createUuid();
+    addTab(tr("New Tab"), "Dashboard", newId, "#3B82F6");
+}
+
+void TabManager::updateTabTitle(const QUuid& contextId, const QString& newTitle)
+{
+    const int index = findTabIndexByContextId(contextId);
+    if (index != -1 && m_tabs[index].title != newTitle) {
+        m_tabs[index].title = newTitle;
+        emit tabsChanged();
+    }
+}
+
 void TabManager::closeTab(const QUuid& contextId)
 {
     for (int i = 0; i < m_tabs.size(); ++i) {

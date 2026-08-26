@@ -67,19 +67,21 @@ QUuid WorkspaceDeleteDialog::selectedWorkspaceId() const
 void WorkspaceDeleteDialog::validateSelection(const QString& name)
 {
 
-    // This function will be used to generate a prompt to the user asking them to confirm the deletion of the workspace, this is to prevent accidental deletion of workspaces. It can be called when the user clicks "Ok" to ensure they want to delete the selected workspace.
-    QMessageBox confirmBox;
-    confirmBox.setIcon(QMessageBox::Warning);
+    auto* confirmBox = new QMessageBox(this);
+    confirmBox->setAttribute(Qt::WA_DeleteOnClose);
+    confirmBox->setIcon(QMessageBox::Warning);
+    confirmBox->setText(tr("Are you sure you want to delete the workspace \"%1\"?").arg(name));
+    confirmBox->setInformativeText("This workspace will not be recoverable after deletion.");
+    confirmBox->setStandardButtons(QMessageBox::Yes | QMessageBox::No);
+    confirmBox->setDefaultButton(QMessageBox::No);
 
-    confirmBox.setText(tr("Are you sure you want to delete the workspace \"%1\"?").arg(name));
-    confirmBox.setInformativeText("This workspace will not be recoverable after deletion.");
-    confirmBox.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-    confirmBox.setDefaultButton(QMessageBox::No);
+    connect(confirmBox, &QMessageBox::buttonClicked, this, [this, confirmBox](QAbstractButton *button) {
+        if (button == confirmBox->button(QMessageBox::Yes)) {
+            accept();
+        }
+    });
 
-    if (confirmBox.exec() == QMessageBox::Yes) {
-        // Proceed with deletion logic or accept the dialogue
-        accept();
-    }
+    confirmBox->open();
 
 
 }

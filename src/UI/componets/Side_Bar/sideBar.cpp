@@ -12,7 +12,8 @@
 #include <QApplication>
 
 
-SideBar::SideBar(QWidget* parent)
+
+SideBar::SideBar(AppStateController* stateController, WorkspaceRepository* repo, QWidget* parent)
     : QFrame(parent)
 {
     setObjectName("SideBar");
@@ -21,17 +22,34 @@ SideBar::SideBar(QWidget* parent)
 
     auto *root = new QVBoxLayout(this);
     root->setContentsMargins(0, 0, 0, 0);
+    root->setSpacing(0);
 
-    m_quickWidget = new QQuickWidget(this);
-    m_quickWidget->setResizeMode(QQuickWidget::SizeRootObjectToView);
-    m_quickWidget->setAttribute(Qt::WA_AlwaysStackOnTop);
-    m_quickWidget->setClearColor(Qt::transparent);
+    m_coreNavSection = new nu_CoreNavigationSection(this);
+    connect(m_coreNavSection, &nu_CoreNavigationSection::itemSelected, this, [this](nu_CoreNavigationSection::Item item) {
+        emit coreItemSelected(static_cast<int>(item));
+    });
+    connect(m_coreNavSection, &nu_CoreNavigationSection::itemColorSelected, this, &SideBar::navigationColorChanged);
 
-    // Link C++ to QML
-    m_quickWidget->rootContext()->setContextProperty("sideBar", this);
-    m_quickWidget->setSource(QUrl("qrc:/qml/SideBar.qml"));
+    m_divider = new QFrame(this);
+    m_divider->setFrameShape(QFrame::HLine);
+    m_divider->setFrameShadow(QFrame::Plain);
+    m_divider->setStyleSheet("background-color: rgba(255, 255, 255, 0.08); max-height: 1px; border: none; margin: 6px 12px;");
 
-    root->addWidget(m_quickWidget);
+    m_projectsSection = new nu_ProjectsSection(this);
+    connect(m_projectsSection, &nu_ProjectsSection::projectCreateRequested, this, &SideBar::projectCreateRequested);
+    connect(m_projectsSection, &nu_ProjectsSection::projectSelected, this, &SideBar::onSwitchProject);
+
+    m_footerSection = new nu_FooterSection(this);
+    m_footerSection->setAppStateController(stateController);
+    m_footerSection->setWorkspaceRepository(repo);
+    connect(m_footerSection, &nu_FooterSection::modeCycleRequested, this, &SideBar::onToggleMode);
+    connect(m_footerSection, &nu_FooterSection::workspaceMenuRequested, this, &SideBar::showWorkspaceMenu);
+
+    root->addWidget(m_coreNavSection, 1);
+    root->addWidget(m_divider, 0);
+    root->addWidget(m_projectsSection, 0);
+    root->addStretch(1);
+    root->addWidget(m_footerSection, 0);
 
     applyMode();
 }
@@ -54,10 +72,23 @@ void SideBar::setWorkspaceName(const QString& name) {
     emit workspaceNameChanged();
 }
 
+void SideBar::setActiveProjectId(const QUuid& id)
+{
+    if (m_activeProjectId == id) return;
+    m_activeProjectId = id;
+    if (m_projectsSection) {
+        m_projectsSection->setActiveProjectId(id);
+    }
+    emit activeProjectIdChanged();
+}
+
 void SideBar::setProjects(const QVariantList& projects)
 {
     if (m_projects == projects) return;
     m_projects = projects;
+    if (m_projectsSection) {
+        m_projectsSection->setProjects(projects);
+    }
     emit projectsChanged();
 }
 
@@ -121,74 +152,67 @@ void SideBar::applyMode() {
     } else {
         setFixedWidth(260);
     }
+
+    // Forward compact property change to core nav section
+    if (m_coreNavSection) {
+        m_coreNavSection->setCompact(compact);
+    }
+
+    if (m_projectsSection) {
+        m_projectsSection->setCompact(compact);
+    }
+
+    if (m_footerSection) {
+        m_footerSection->setMode(m_mode);
+    }
 }
 
 void SideBar::updateWorkspaceMenuStyle() {
-     if (!m_workspaceMenu) return;
+    if (!m_workspaceMenu) return;
 
-    const QColor win = qApp->palette().window().color();
-    const bool darkMode = win.lightness() < 128;
-
-
-    const QString css = darkMode ?
-        R"(
-            QMenu {
-                background-color: #2B3038;
-                border: 1px solid #444C58;
-                border-radius: 8px;
-                padding: 4px;
-            }
-            QMenu::item {
-                color: #D0D5DD;
-                padding: 7px 12px;
-                border-radius: 6px;
-            }
-            QMenu::item:selected {
-                background-color: #3C4655;
-                color: #FFFFFF;
-            }
-            QMenu::separator {
-                height: 1px;
-                margin: 4px 8px;
-                background: #444C58;
-            }
-
-        )"
-        : R"(
-            QMenu { background-color: #FFFFFF;
-                border: 1px solid #D9DDE3;
-                border-radius: 8px;
-                padding: 4px;
-            }
-            QMenu::item {
-                color: #1F2937;
-                padding: 7px 12px;
-                border-radius: 6px;
-            }
-            QMenu::item:selected {
-                background-color: #E8F0FE;
-                color: #0B57D0;
-            }
-            QMenu::separator {
-                height: 1px;
-                margin: 4px 8px;
-                background: #E5E7EB;
-            }
-        )";
-    m_workspaceMenu->setStyleSheet(css);
+    m_workspaceMenu->setStyleSheet(R"(
+        QMenu#WorkspaceMenu {
+            background-color: #141721;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 6px;
+        }
+        QMenu#WorkspaceMenu::item {
+            color: #E2E8F0;
+            padding: 8px 20px 8px 10px;
+            margin: 2px 0px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        QMenu#WorkspaceMenu::icon {
+            padding-left: 4px;
+            padding-right: 8px;
+        }
+        QMenu#WorkspaceMenu::item:selected {
+            background-color: rgba(99, 102, 241, 0.2);
+            color: #FFFFFF;
+        }
+        QMenu#WorkspaceMenu::separator {
+            height: 1px;
+            margin: 4px 6px;
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+    )");
 }
 
 void SideBar::showWorkspaceMenu() {
     if (!m_workspaceMenu) {
         m_workspaceMenu = new QMenu(this);
+        m_workspaceMenu->setObjectName("WorkspaceMenu");
 
-        QAction* switchAction = m_workspaceMenu->addAction("Switch Workspace");
-        QAction* createAction = m_workspaceMenu->addAction("Create Workspace");
-        QAction* deleteAction = m_workspaceMenu->addAction("Delete Workspace");
+        QAction* switchAction = m_workspaceMenu->addAction(QIcon(":/icons/switch_workspace.svg"), "Switch Workspace");
+        QAction* createAction = m_workspaceMenu->addAction(QIcon(":/icons/create_workspace.svg"), "Create Workspace");
+        QAction* deleteAction = m_workspaceMenu->addAction(QIcon(":/icons/delete-icon.svg"), "Delete Workspace");
 
         m_workspaceMenu->addSeparator();
 
-        QAction* settingsAction = m_workspaceMenu->addAction("Workspace Settings");
+        QAction* settingsAction = m_workspaceMenu->addAction(QIcon(":/icons/settings.svg"), "Workspace Settings");
 
         connect(switchAction, &QAction::triggered, this, &SideBar::onSwitchWorkspace);
         connect(createAction, &QAction::triggered, this, &SideBar::onCreateWorkspace);
@@ -197,7 +221,13 @@ void SideBar::showWorkspaceMenu() {
     }
 
     updateWorkspaceMenuStyle();
-    m_workspaceMenu->exec(QCursor::pos());
+
+    if (m_footerSection) {
+        QPoint anchor = m_footerSection->mapToGlobal(QPoint(m_footerSection->width() + 4, m_footerSection->height() - 170));
+        m_workspaceMenu->popup(anchor);
+    } else {
+        m_workspaceMenu->popup(QCursor::pos());
+    }
 }
 
 void SideBar::onSwitchWorkspace() {

@@ -95,9 +95,9 @@ MainWindow::MainWindow(QWidget* parent)
     mainLayout->setColumnStretch(1, 14);
     mainLayout->setColumnStretch(2, 10);
 
-    mainLayout->setRowStretch(0, 2);
-    mainLayout->setRowStretch(1, 18);
-    mainLayout->setRowStretch(2, 10);
+    mainLayout->setRowStretch(0, 0);
+    mainLayout->setRowStretch(1, 1);
+    mainLayout->setRowStretch(2, 0);
 
     // ============================================================
     // 2. TOP MENUBAR (.top_menubar)
@@ -105,6 +105,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     topBarFrame = new QFrame();
     topBarFrame->setObjectName("topBarFrame");
+    topBarFrame->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     mainLayout->addWidget(topBarFrame, 0, 0, 1, 3);
 
     topBarFrame->installEventFilter(this);
@@ -112,8 +113,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Internal Grid for Top Bar
     auto *topLayout = new QGridLayout(topBarFrame);
-    topLayout->setContentsMargins(10, 8, 10, 8);
-    topLayout->setSpacing(0);
+    topLayout->setContentsMargins(10, 6, 10, 4);
+    topLayout->setHorizontalSpacing(10);
+    topLayout->setVerticalSpacing(4);
 
     // Horizontal stretch: Left/Right fixed, Center expands
     topLayout->setColumnStretch(0, 0);
@@ -223,7 +225,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(m_mainContent, &MainContentView::noteOpenRequested, this, [this](const QString& noteId) {
         if (m_tabManager) {
-            m_tabManager->addTab(tr("Edit Note"), "Note", QUuid::fromString(noteId), "#C586C0");
+            m_tabManager->navigateActiveTab(tr("Edit Note"), "Note", QUuid::fromString(noteId), "#C586C0");
         }
     });
 
@@ -235,8 +237,18 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_tabManager, &TabManager::tabOpened, this, [this](const QString& viewType, const QUuid& contextId) {
         qDebug() << "Tab opened with viewType:" << viewType << "and contextId:" << contextId;
 
-        if (viewType == "Home") {
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
+        if (viewType == "Home" || viewType == "Dashboard") {
+            Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
+            if (ws.id.isNull()) {
+                QUuid activeWsId = m_stateController->context().activeWorkspaceId;
+                if (activeWsId.isNull()) {
+                    const auto workspaces = m_workspaceRepo->workspaces();
+                    if (!workspaces.isEmpty()) {
+                        activeWsId = workspaces.first().id;
+                    }
+                }
+                ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            }
             if (!ws.id.isNull()) {
                 m_mainContent->setActiveWorkspace(ws);
                 m_stateController->setActiveWorkspace(ws.id, ws.name);
@@ -266,6 +278,20 @@ MainWindow::MainWindow(QWidget* parent)
             const Note note = m_workspaceRepo->getNoteById(contextId);
             if (!note.id.isNull()) {
                 m_mainContent->loadNoteView(note);
+            }
+        }
+    });
+
+    connect(m_tabManager, &TabManager::activeTabIdChanged, this, [this]() {
+        QUuid activeId = m_tabManager->activeTabId();
+        if (activeId.isNull() || !m_mainContent) return;
+
+        int index = m_tabManager->findTabIndexByContextId(activeId);
+        if (index >= 0 && index < m_tabManager->tabs().count()) {
+            QVariantMap tabMap = m_tabManager->tabs().at(index).toMap();
+            QString color = tabMap.value("projectColour").toString();
+            if (!color.isEmpty()) {
+                m_mainContent->setBorderColor(color);
             }
         }
     });
@@ -500,29 +526,21 @@ void MainWindow::setupSideBar() {
     lay->setContentsMargins(0, 0, 0, 0); // Removed large margins around the sidebar widget
     lay->setSpacing(0);
 
-    m_sideBar = new SideBar(sideBarFrame);
+    m_sideBar = new SideBar(m_stateController, m_workspaceRepo, sideBarFrame);
     lay->addWidget(m_sideBar);
-    lay->addWidget(m_sideBar, 0, Qt::AlignLeft);
-    lay->setAlignment(m_sideBar, Qt::AlignLeft);
 
     SideBar::Mode m = SideBar::Mode::Default;
     const int w = width();
-    if (w < 800)       m = SideBar::Mode::Hidden;
-    else if (w < 1200) m = SideBar::Mode::Compact;
+    if (w < 600)       m = SideBar::Mode::Hidden;
+    else if (w < 850)  m = SideBar::Mode::Compact;
     m_sideBar->setMode(m);
 
     // Apply initial stretches based on mode
     auto* grid = qobject_cast<QGridLayout*>(layout());
     if (grid) {
-        if (m != SideBar::Mode::Default) {
-            grid->setColumnStretch(0, 0);
-            grid->setColumnStretch(1, 14);
-            grid->setColumnStretch(2, 10);
-        } else {
-            grid->setColumnStretch(0, 0);
-            grid->setColumnStretch(1, 14);
-            grid->setColumnStretch(2, 10);
-        }
+        grid->setColumnStretch(0, 0);
+        grid->setColumnStretch(1, 14);
+        grid->setColumnStretch(2, 10);
     }
 
 
@@ -620,29 +638,30 @@ void MainWindow::setupSidebarConnections()
     });
 
     // Handle Sidebar Intent
-    connect(m_sideBar, &SideBar::workspaceSwitchRequested, this, [this](){
-        WorkspaceSwitchDialog dlg(
-                m_workspaceRepo->workspaces(),
-                m_stateController->context().activeWorkspaceId,
-                this
-            );
-
-        if (dlg.exec() == QDialog::Accepted) {
-            const QUuid id = dlg.selectedWorkspaceId();
+    connect(m_sideBar, &SideBar::workspaceSwitchRequested, this, [this](){        auto* dlg = new WorkspaceSwitchDialog(
+            m_workspaceRepo->workspaces(),
+            m_stateController->context().activeWorkspaceId,
+            this
+        );
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dlg, &QDialog::accepted, this, [this, dlg]() {
+            const QUuid id = dlg->selectedWorkspaceId();
             const Workspace ws = m_workspaceRepo->getWorkspaceById(id);
-            m_tabManager->addTab(ws.name, "Home", ws.id, "#3B82F6");
-        }
+            m_tabManager->navigateActiveTab(ws.name, "Home", ws.id, "#3B82F6");
+        });
+        dlg->open();
     });
 
     // Handle Workspace Menu delete Request
     connect(m_sideBar, &SideBar::workspaceDeleteRequested, this, [this]()
     {
-        WorkspaceDeleteDialog dlg(m_workspaceRepo->workspaces(), this);
-        if (dlg.exec() == QDialog::Accepted) {
-            const QUuid id = dlg.selectedWorkspaceId();
+        auto* dlg = new WorkspaceDeleteDialog(m_workspaceRepo->workspaces(), this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dlg, &QDialog::accepted, this, [this, dlg]() {
+            const QUuid id = dlg->selectedWorkspaceId();
             m_workspaceRepo->deleteWorkspace(id);
-            // Optionally refresh the UI or switch to another workspace here
-        }
+        });
+        dlg->open();
     });
 
     // Handle workspace setting window
@@ -651,21 +670,23 @@ void MainWindow::setupSidebarConnections()
             return;
 
         const Workspace ws = m_workspaceRepo->getWorkspaceById(activeId);
-        WorkspaceSettingsWindow dlg(activeId, ws.name, m_workspaceRepo, this);
+        auto* dlg = new WorkspaceSettingsWindow(activeId, ws.name, m_workspaceRepo, this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
 
         const QString titleName = ws.name.isEmpty() ? activeId.toString(QUuid::WithoutBraces) : ws.name;
-        dlg.setWindowTitle(tr("Workspace Settings: \"%1\"").arg(titleName));
+        dlg->setWindowTitle(tr("Workspace Settings: \"%1\"").arg(titleName));
 
-        dlg.exec(); // modal settings window
+        dlg->open();
     });
 
     // Handle Workspace Menu create Request
     connect(m_sideBar, &SideBar::workspaceCreateRequested, this, [this]() {
-        WorkspaceCreateDialog dlg(this, m_workspaceRepo);
-        if (dlg.exec() == QDialog::Accepted) {
-            const QString newName = dlg.workspaceName().trimmed();
-            const QString type = dlg.workspaceType();
-            const QString description = dlg.workspaceDescription();
+        auto* dlg = new WorkspaceCreateDialog(this, m_workspaceRepo);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dlg, &QDialog::accepted, this, [this, dlg]() {
+            const QString newName = dlg->workspaceName().trimmed();
+            const QString type = dlg->workspaceType();
+            const QString description = dlg->workspaceDescription();
 
             if (newName.isEmpty()) return;
 
@@ -673,7 +694,8 @@ void MainWindow::setupSidebarConnections()
             if (!newId.isNull()) {
                 m_stateController->setActiveWorkspace(newId, newName);
             }
-        }
+        });
+        dlg->open();
     });
 
     connect(m_sideBar, &SideBar::projectCreateRequested, this, [this]() {
@@ -682,47 +704,78 @@ void MainWindow::setupSidebarConnections()
             return;
         }
 
-        ProjectCreateDialog dlg(activeWorkspaceId, this, m_workspaceRepo);
-        if (dlg.exec() != QDialog::Accepted) {
-            return;
+        auto* dlg = new ProjectCreateDialog(activeWorkspaceId, this, m_workspaceRepo);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        connect(dlg, &QDialog::accepted, this, [this, dlg, activeWorkspaceId]() {
+            Project project;
+            project.workspaceId = activeWorkspaceId;
+            project.name = dlg->projectName();
+            project.description = dlg->projectDescription();
+            project.isArchived = false;
+
+            const QUuid newProjectId = m_workspaceRepo->createProject(project);
+            if (m_sideBar && !newProjectId.isNull()) {
+                m_sideBar->setActiveProjectId(newProjectId);
+            }
+        });
+        dlg->open();
+    });
+
+    connect(m_sideBar, &SideBar::navigationColorChanged, this, [this](const QString& colorHex) {
+        if (m_mainContent && !colorHex.isEmpty()) {
+            m_mainContent->setBorderColor(colorHex);
         }
+    });
 
-        Project project;
-        project.workspaceId = activeWorkspaceId;
-        project.name = dlg.projectName();
-        project.description = dlg.projectDescription();
-        project.isArchived = false;
-
-        const QUuid newProjectId = m_workspaceRepo->createProject(project);
-        if (m_sideBar && !newProjectId.isNull()) {
-            m_sideBar->setActiveProjectId(newProjectId);
+    connect(m_sideBar, &SideBar::coreItemSelected, this, [this](int itemIndex) {
+        const auto item = static_cast<nu_CoreNavigationSection::Item>(itemIndex);
+        const QString color = nu_CoreNavigationSection::colorForItem(item);
+        if (m_mainContent) {
+            m_mainContent->setBorderColor(color);
+        }
+        if (item == nu_CoreNavigationSection::Item::Dashboard && m_tabManager) {
+            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
+            if (activeWsId.isNull()) {
+                const auto workspaces = m_workspaceRepo->workspaces();
+                if (!workspaces.isEmpty()) {
+                    activeWsId = workspaces.first().id;
+                }
+            }
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            if (!ws.id.isNull()) {
+                m_sideBar->setActiveProjectId(QUuid());
+                m_tabManager->navigateActiveTab(ws.name, "Home", ws.id, "#3B82F6");
+            }
         }
     });
 
     connect(m_sideBar, &SideBar::projectSelected, this, [this](const QUuid& projectId){
+        if (projectId.isNull() || !m_workspaceRepo || !m_stateController) return;
 
-    if (projectId.isNull() || !m_workspaceRepo || !m_stateController) return;
+        const Project project = m_workspaceRepo->getProjectById(projectId);
+        if (project.id.isNull()) return;
 
-    const Project project = m_workspaceRepo->getProjectById(projectId);
-    if (project.id.isNull()) return;
+        m_sideBar->setActiveProjectId(projectId);
+        m_stateController->setLastProjectForWorkspace(project.workspaceId, project.id);
 
+        const Workspace ws = m_workspaceRepo->getWorkspaceById(project.workspaceId);
 
-    m_sideBar->setActiveProjectId(projectId);
+        QString tabTitle = project.name;
+        if (!ws.id.isNull()) {
+            tabTitle = QString("%1 / %2").arg(ws.name, project.name);
+        }
 
+        static const QStringList palette = {
+            "#81C784", "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65"
+        };
+        const QString projectColor = palette.at(qAbs(qHash(projectId.toString())) % palette.size());
 
-    m_stateController->setLastProjectForWorkspace(project.workspaceId, project.id);
+        if (m_mainContent) {
+            m_mainContent->setBorderColor(projectColor);
+        }
 
-
-    const Workspace ws = m_workspaceRepo->getWorkspaceById(project.workspaceId);
-
-    QString tabTitle = project.name;
-    if (!ws.id.isNull()) {
-
-        tabTitle = QString("%1 / %2").arg(ws.name, project.name);
-    }
-
-    m_tabManager->addTab(tabTitle, "Project", project.id, "#81C784");
-});
+        m_tabManager->navigateActiveTab(tabTitle, "Project", project.id, projectColor);
+    });
 
     connect(m_workspaceRepo, &WorkspaceRepository::projectAdded, this, [refreshSidebarProjects](const Project&) {
         refreshSidebarProjects();
@@ -742,22 +795,15 @@ void MainWindow::resizeEvent(QResizeEvent* e) {
     if (m_sideBar) {
         SideBar::Mode m = SideBar::Mode::Default;
         const int w = width();
-        if (w < 800)      m = SideBar::Mode::Hidden;
-        else if (w < 1200) m = SideBar::Mode::Compact;
+        if (w < 600)      m = SideBar::Mode::Hidden;
+        else if (w < 850) m = SideBar::Mode::Compact;
         m_sideBar->setMode(m);
 
-        // Dynamically adjust column stretches to allow scaling in Default mode
         auto* grid = qobject_cast<QGridLayout*>(layout());
         if (grid) {
-            if (m == SideBar::Mode::Default) {
-                grid->setColumnStretch(0, 0);  // Give sidebar 20% stretch (6/30)
-                grid->setColumnStretch(1, 14); 
-                grid->setColumnStretch(2, 10);
-            } else {
-                grid->setColumnStretch(0, 0);  // Fixed width for Compact/Hidden
-                grid->setColumnStretch(1, 14);
-                grid->setColumnStretch(2, 10);
-            }
+            grid->setColumnStretch(0, 0);
+            grid->setColumnStretch(1, 14);
+            grid->setColumnStretch(2, 10);
         }
         updateFloatingToggleButtonVisibility();
     }
@@ -774,8 +820,8 @@ void MainWindow::updateWindowTheme()
 
             topBarFrame->setStyleSheet(
                 "QFrame#topBarFrame {"
-                "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e1e1e, stop:1 #161616);"
-                "  border-bottom: 1px solid rgba(255, 255, 255, 0.04);"
+                "  background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1A1B22, stop:1 #13141A);"
+                "  border-bottom: 1px solid rgba(255, 255, 255, 0.06);"
                 "}"
             );
         } else {
@@ -794,11 +840,11 @@ void MainWindow::updateWindowTheme()
     {
         if (darkMode)
         {
-            infoBar->setStyleSheet("background-color: #1e1e1e; color: #ffffff;");
+            infoBar->setStyleSheet("background-color: transparent; color: #ffffff;");
         }
         else
         {
-            infoBar->setStyleSheet("background-color: #f0f0f0; color: #000000;");
+            infoBar->setStyleSheet("background-color: transparent; color: #000000;");
         }
     }
     if (m_navigationBar)
@@ -819,9 +865,11 @@ void MainWindow::updateWindowTheme()
             ? "QPushButton { padding: 0px; border: none; border-radius: 4px; }"
               "QPushButton:hover { background: #a8c0ff; }"
               "QPushButton:pressed { background-color: rgba(255,255,255,0.32); }"
+              "QPushButton::menu-indicator { image: none; width: 0px; margin: 0px; padding: 0px; }"
             : "QPushButton { padding: 0px; border: none; border-radius: 4px; }"
               "QPushButton:hover { background: #d2e3fc; }"
-              "QPushButton:pressed { background-color: rgba(0,0,0,0.08); }";
+              "QPushButton:pressed { background-color: rgba(0,0,0,0.08); }"
+              "QPushButton::menu-indicator { image: none; width: 0px; margin: 0px; padding: 0px; }";
         m_menuButtonBar->setButtonStyleSheet(css);
     }
     // WindowsActionsBar

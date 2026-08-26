@@ -12,6 +12,15 @@
 #include <QUuid>
 #include <QVariantList>
 
+#include "SideBarMode.h"
+#include <UI/components/SIde_Bar/nu_componets/CoreNavigationSection.h>
+#include <UI/components/SIde_Bar/nu_componets/FooterSection.h>
+#include <UI/components/SIde_Bar/nu_componets/ProjectSection.h>
+
+
+class AppStateController;
+class WorkspaceRepository;
+
 class SideBar : public QFrame
 {
     Q_OBJECT
@@ -21,13 +30,8 @@ class SideBar : public QFrame
     Q_PROPERTY(QVariantList projects READ projects NOTIFY projectsChanged)
     Q_PROPERTY(QUuid activeProjectId READ activeProjectId WRITE setActiveProjectId NOTIFY activeProjectIdChanged)
 public:
-    explicit SideBar(QWidget *parent = nullptr);
-    enum class Mode
-    {
-        Default,
-        Compact,
-        Hidden
-    };
+    explicit SideBar(AppStateController* stateController, WorkspaceRepository* repo, QWidget* parent = nullptr);
+    using Mode = SideBarNamespace::Mode;
 
     Mode mode() const { return m_mode; }
     void setMode(const Mode newMode);
@@ -40,7 +44,7 @@ public:
     QUuid workspaceId() const { return m_workspaceId; }
     QUuid activeProjectId() const { return m_activeProjectId; }
     void setWorkspaceId(const QUuid& id) { if (m_workspaceId == id) return; m_workspaceId = id; emit workspaceIdChanged(); }
-    void setActiveProjectId(const QUuid& id) { if (m_activeProjectId == id) return; m_activeProjectId = id; emit activeProjectIdChanged(); }
+    void setActiveProjectId(const QUuid& id);
     QVariantList projects() const { return m_projects; }
     void setProjects(const QVariantList& projects);
 
@@ -58,6 +62,7 @@ signals:
     void workspaceDeleteRequested();
     void workspaceSettingsRequested(const QUuid& workspaceId);
     void coreItemSelected(int item /* map to enum in section */);
+    void navigationColorChanged(const QString& colorHex);
     void projectSelected(const QUuid& projectId);
     void activeProjectIdChanged();
     void projectCreateRequested();
@@ -83,9 +88,12 @@ private:
     QUuid m_workspaceId;
     QUuid m_activeProjectId;
     QVariantList m_projects;
-    QQuickWidget* m_quickWidget { nullptr };
     QMenu* m_workspaceMenu { nullptr };
 
+    nu_CoreNavigationSection* m_coreNavSection { nullptr };
+    QFrame* m_divider { nullptr };
+    nu_ProjectsSection* m_projectsSection { nullptr };
+    nu_FooterSection* m_footerSection { nullptr };
 };
 
 

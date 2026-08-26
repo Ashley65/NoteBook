@@ -15,7 +15,7 @@ MenuButtonBar::MenuButtonBar(QWidget *parent) : QWidget(parent)
     initUi();
 }
 
-void MenuButtonBar::setButtonStyleSheet(const QString& css)
+void MenuButtonBar::setButtonStyleSheet(const QString& css) const
 {
     if (m_menuBtn)
     {
@@ -40,30 +40,42 @@ void MenuButtonBar::initUi()
     };
 
     m_menuBtn = new QPushButton(this);
-    m_menuBtn->setToolTip("Menu");
-    m_menuBtn->setAccessibleName("Menu");
+    m_menuBtn->setToolTip("Settings");
+    m_menuBtn->setAccessibleName("Settings");
     m_menuBtn->setFlat(true);
     m_menuBtn->setFixedSize(buttonSize, buttonSize);
-    m_menuBtn->setIcon(loadIcon(QStringLiteral("menu_24dp_E3E3E3_FILL0_wght400_GRAD0_opsz24")));
+    m_menuBtn->setIcon(loadIcon(QStringLiteral("settings")));
     m_menuBtn->setIconSize(iconSize);
+    m_menuBtn->setStyleSheet(
+        "QPushButton { padding: 0px; border: none; border-radius: 4px; }"
+        "QPushButton::menu-indicator { image: none; width: 0px; margin: 0px; padding: 0px; }"
+    );
 
-    const QString css =
-        "QPushButton {"
-        "  padding: 0px;"
-        "  border: none;"
-        "  border-radius: 4px;"
-        "}"
-        "QPushButton:hover {"
-        "    background: #a8c0ff;"
-        "}"
-        "QPushButton:pressed {"
-        "  background-color: rgba(255, 255, 255, 0.32);"
-        "}";
-
-    m_menuBtn->setStyleSheet(css);
-    layout->addWidget(m_menuBtn);   // <- actually add the button to the layout
+    layout->addWidget(m_menuBtn);
 
     auto *menu = new QMenu(this);
+    menu->setStyleSheet(
+        "QMenu {"
+        "  background-color: #1E202B;"
+        "  color: #FFFFFF;"
+        "  border: 1px solid rgba(255, 255, 255, 0.1);"
+        "  border-radius: 6px;"
+        "  padding: 4px;"
+        "}"
+        "QMenu::item {"
+        "  padding: 6px 20px 6px 10px;"
+        "  border-radius: 4px;"
+        "}"
+        "QMenu::item:selected {"
+        "  background-color: #2D3042;"
+        "}"
+        "QMenu::separator {"
+        "  height: 1px;"
+        "  background-color: rgba(255, 255, 255, 0.08);"
+        "  margin: 4px 0px;"
+        "}"
+    );
+
     auto *settingsAct = menu->addAction("Settings");
     auto *aboutAct    = menu->addAction("About");
     menu->addSeparator();
