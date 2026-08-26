@@ -4,7 +4,7 @@ NoteBook is a high-performance productivity application designed for seamless wo
 
 ---
 
-## 🌟 Features
+## Features
 
 - **Workspace Management**: Create and switch between isolated workspaces.
 - **Project & Task Tracking**: Granular task tracking with priority levels (Low, Medium, High), due dates, and Kanban status columns (To Do, In Progress, Completed).
@@ -17,36 +17,11 @@ NoteBook is a high-performance productivity application designed for seamless wo
 
 ---
 
-## 🌐 Web Version (`web/`)
 
-The web application resides in the `web/` directory and can be used in any modern browser.
 
-### 1. Run Locally
-You can run the web version locally using Node / NPX or any static web server:
 
-```bash
-cd web
-npm run dev
-```
-Or with Python:
-```bash
-cd web
-python -m http.server 3000
-```
-Then open [http://localhost:3000](http://localhost:3000) in your browser.
 
-### 2. Host on Cloudflare Pages
-Deploying to Cloudflare Pages is zero-config using Wrangler:
-
-```bash
-cd web
-npx wrangler pages deploy . --project-name=notebook-app
-```
-Alternatively, link your GitHub repository to Cloudflare Pages dashboard with `web` as the build output directory.
-
----
-
-## 💻 Desktop Prerequisites & Build (C++ / Qt)
+## Desktop Prerequisites & Build (C++ / Qt)
 
 ### Prerequisites
 - **CMake** (v3.16 or higher)
