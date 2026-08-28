@@ -7,16 +7,14 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-if (NOT DEFINED CMAKE_PREFIX_PATH)
-    if (WIN32 AND NOT EMSCRIPTEN)
-        set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
-    endif ()
+if (WIN32 AND NOT EMSCRIPTEN)
+    list(APPEND CMAKE_PREFIX_PATH "C:/Qt/6.11.0/msvc2022_64")
 endif ()
 if (APPLE)
     if (DEFINED ENV{QT_PATH})
-        set(CMAKE_PREFIX_PATH "$ENV{QT_PATH}")
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_PATH}")
     else()
-        set(CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
+        list(APPEND CMAKE_PREFIX_PATH "$ENV{HOME}/Qt/6.11.0/macos")
     endif()
 endif ()
 
@@ -94,7 +92,8 @@ set (SOURCE_FILES
         src/UI/componets/Content_Windows/Page/wsNotePage.cpp
         src/UI/componets/Side_Bar/nu_componets/CoreNavigationSection.cpp
         src/UI/componets/Side_Bar/nu_componets/FooterSection.cpp
-        src/UI/componets/Side_Bar/nu_componets/ProjectsSection.cpp)
+        src/UI/componets/Side_Bar/nu_componets/ProjectsSection.cpp
+        src/UI/componets/Content_Windows/Page/wsTaskBoardPage.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -209,7 +208,7 @@ endif()
 # --- NEW DEPLOYMENT LOGIC FOR WINDOWS ---
 if (WIN32)
     # Locate the windeployqt tool provided by your Qt installation
-    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${CMAKE_PREFIX_PATH}/bin")
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${CMAKE_PREFIX_PATH} PATH_SUFFIXES bin)
 
     if(WINDEPLOYQT_EXECUTABLE)
         # Run windeployqt automatically after building the executable

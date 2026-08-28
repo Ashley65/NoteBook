@@ -5,6 +5,8 @@
 #include <UI/components/Content_Windows/MainContentView.h>
 #include <UI/components/Content_Windows/WorkspaceViewFactory.h>
 #include <UI/components/Content_Windows/page/wsNotePage.h>
+#include <UI/components/Content_Windows/page/wsTaskBoardPage.h>
+#include <UI/components/Content_Windows/page/wsHomePage.h>
 #include <helpers/Workspace.h>
 
 MainContentView::MainContentView(WorkspaceRepository* repo, QWidget* parent) : QStackedWidget(parent), m_repo(repo)
@@ -30,7 +32,8 @@ void MainContentView::setActiveWorkspace(const Workspace& ws)
 {
     if (!m_repo) return;
     
-    if (!views_.contains(ws.id)) {
+    const QString key = "ws_" + ws.id.toString(QUuid::WithoutBraces);
+    if (!views_.contains(key)) {
         IWorkspaceView* view = WorkspaceViewFactory::createWorkspaceView(ws, m_repo, this);
         if (!view) return;
 
@@ -40,12 +43,12 @@ void MainContentView::setActiveWorkspace(const Workspace& ws)
             });
         }
 
-        views_[ws.id] = view;
+        views_[key] = view;
         addWidget(view);
     } else {
-        views_[ws.id]->updateWorkspace(ws);
+        views_[key]->updateWorkspace(ws);
     }
-    setCurrentWidget(views_[ws.id]);
+    setCurrentWidget(views_[key]);
 }
 
 void MainContentView::setActiveWorkspace(const AppContext& ctx)
@@ -62,43 +65,34 @@ void MainContentView::setActiveProject(const Project& project)
     
     m_activeProject = project;
 
-    // 1. Look up the view using the PROJECT ID, not the Workspace ID!
-    if (!views_.contains(project.id)) {
-
-        // 2. The view doesn't exist for this specific project yet.
-        // We still need the parent workspace data to build it.
+    const QString key = "proj_" + project.id.toString(QUuid::WithoutBraces);
+    if (!views_.contains(key)) {
         const Workspace ws = m_repo->getWorkspaceById(project.workspaceId);
-        if (ws.id.isNull()) return; // Failsafe
+        if (ws.id.isNull()) return;
 
-        // 3. Create a brand new, dedicated widget just for this Project Tab
         IWorkspaceView* newProjectView = WorkspaceViewFactory::createWorkspaceView(ws, m_repo, this);
         if (!newProjectView) return;
 
-        //  its state to show the project
         newProjectView->setActiveProject(project);
 
-        // 4. Save it in the dictionary under the PROJECT ID and add to stack
-        views_[project.id] = newProjectView;
+        views_[key] = newProjectView;
         addWidget(newProjectView);
     } else {
-        // If it already exists, just update it in case background data changed
-        views_[project.id]->setActiveProject(project);
+        views_[key]->setActiveProject(project);
     }
 
-    // 5. Flip the QStackedWidget to the dedicated Project View
-    setCurrentWidget(views_[project.id]);
+    setCurrentWidget(views_[key]);
 }
 
 void MainContentView::loadNoteView(const Note& note)
 {
     if (!m_repo) return;
 
-    if (!views_.contains(note.id)) {
-        // We need the workspace to create the view
+    const QString key = "note_" + note.id.toString(QUuid::WithoutBraces);
+    if (!views_.contains(key)) {
         const Workspace ws = m_repo->getWorkspaceById(note.workspaceId);
         if (ws.id.isNull()) return;
 
-        // Create a Note view (type "note" in factory)
         Workspace noteWs = ws;
         noteWs.type = "note";
         IWorkspaceView* noteView = WorkspaceViewFactory::createWorkspaceView(noteWs, m_repo, this);
@@ -108,26 +102,71 @@ void MainContentView::loadNoteView(const Note& note)
             page->loadNote(note.id.toString(QUuid::WithoutBraces));
         }
 
-        views_[note.id] = noteView;
+        views_[key] = noteView;
         addWidget(noteView);
     } else {
-        if (wsNotePage* page = qobject_cast<wsNotePage*>(views_[note.id])) {
+        if (wsNotePage* page = qobject_cast<wsNotePage*>(views_[key])) {
             page->loadNote(note.id.toString(QUuid::WithoutBraces));
         }
     }
 
-    setCurrentWidget(views_[note.id]);
+    setCurrentWidget(views_[key]);
+}
+
+void MainContentView::loadTaskBoardView(const Workspace& ws, const Project& project)
+{
+    if (!m_repo || ws.id.isNull()) return;
+
+    const QUuid contextId = !project.id.isNull() ? project.id : ws.id;
+    const QString key = "taskboard_" + contextId.toString(QUuid::WithoutBraces);
+
+    if (!views_.contains(key))
+    {
+        Workspace taskWs = ws;
+        taskWs.type = "taskboard";
+
+        IWorkspaceView* boardView = WorkspaceViewFactory::createWorkspaceView(taskWs, m_repo, this);
+        if (!boardView) return;
+
+        if (wsTaskBoardPage* page = qobject_cast<wsTaskBoardPage*>(boardView)) {
+            if (!project.id.isNull()) {
+                page->setActiveProject(project);
+            }
+            connect(page, &wsTaskBoardPage::noteOpenRequested, this, [this](const QString& noteId) {
+                emit noteOpenRequested(noteId);
+            });
+        }
+
+        views_[key] = boardView;
+        addWidget(boardView);
+    }
+    else
+    {
+        if (wsTaskBoardPage* page = qobject_cast<wsTaskBoardPage*>(views_[key])) {
+            if (!project.id.isNull()) {
+                page->setActiveProject(project);
+            } else {
+                page->updateWorkspace(ws);
+            }
+        }
+    }
+
+    setCurrentWidget(views_[key]);
 }
 
 void MainContentView::discardView(const QUuid& contextId)
 {
-    if (views_.contains(contextId)) {
-        IWorkspaceView* view = views_[contextId];
-        if (currentWidget() != view) {
-            removeWidget(view);
-            views_.remove(contextId);
-            view->deleteLater();
-            qDebug() << "Discarded view for context:" << contextId;
+    const QString idStr = contextId.toString(QUuid::WithoutBraces);
+    const auto keys = views_.keys();
+    for (const QString& key : keys) {
+        if (key.contains(idStr)) {
+            IWorkspaceView* view = views_[key];
+            if (currentWidget() != view) {
+                removeWidget(view);
+                views_.remove(key);
+                view->deleteLater();
+                qDebug() << "Discarded view for context key:" << key;
+            }
         }
     }
 }

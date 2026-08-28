@@ -25,15 +25,17 @@ public:
     void setActiveWorkspace(const AppContext& ctx);
     void setActiveProject(const Project& project);
     void loadNoteView(const Note& note);
+    void loadTaskBoardView(const Workspace& ws, const Project& project = Project{});
     void discardView(const QUuid& contextId);
     void setBorderColor(const QString& colorHex);
     QString borderColor() const { return m_borderColor; }
 
 signals:
     void noteOpenRequested(const QString& noteId);
+    void taskOpenRequested(const QString& taskId);
 
 private:
-    QHash<QUuid, IWorkspaceView*> views_;
+    QHash<QString, IWorkspaceView*> views_;
     WorkspaceRepository* m_repo {nullptr};
     Project m_activeProject;
     QString m_borderColor { "#6366F1" };

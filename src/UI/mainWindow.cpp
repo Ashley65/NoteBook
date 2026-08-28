@@ -279,6 +279,20 @@ MainWindow::MainWindow(QWidget* parent)
             if (!note.id.isNull()) {
                 m_mainContent->loadNoteView(note);
             }
+
+        } else if (viewType == "TaskBoard") {
+            const Project p = m_workspaceRepo->getProjectById(contextId);
+            if (!p.id.isNull()) {
+                const Workspace ws = m_workspaceRepo->getWorkspaceById(p.workspaceId);
+                m_mainContent->loadTaskBoardView(ws, p);
+            } else {
+                const Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
+                if (!ws.id.isNull()) {
+                    m_mainContent->loadTaskBoardView(ws, Project{});
+                }
+            }
+        } else {
+            qWarning() << "Unknown viewType requested:" << viewType;
         }
     });
 
@@ -745,6 +759,37 @@ void MainWindow::setupSidebarConnections()
             if (!ws.id.isNull()) {
                 m_sideBar->setActiveProjectId(QUuid());
                 m_tabManager->navigateActiveTab(ws.name, "Home", ws.id, "#3B82F6");
+            }
+        } else if (item == nu_CoreNavigationSection::Item::TaskBoard && m_tabManager) {
+            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
+            if (activeWsId.isNull()) {
+                const auto workspaces = m_workspaceRepo->workspaces();
+                if (!workspaces.isEmpty()) {
+                    activeWsId = workspaces.first().id;
+                }
+            }
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            if (!ws.id.isNull()) {
+                QUuid activeProjId = m_sideBar ? m_sideBar->activeProjectId() : QUuid();
+                if (activeProjId.isNull()) {
+                    activeProjId = m_stateController->lastProjectForWorkspace(activeWsId);
+                }
+
+                Project proj;
+                if (!activeProjId.isNull()) {
+                    proj = m_workspaceRepo->getProjectById(activeProjId);
+                }
+
+                QString tabTitle = "Task Board";
+                QUuid contextId = ws.id;
+                if (!proj.id.isNull()) {
+                    tabTitle = QString("%1 / Task Board").arg(proj.name);
+                    contextId = proj.id;
+                } else {
+                    tabTitle = QString("%1 / Task Board").arg(ws.name);
+                }
+
+                m_tabManager->navigateActiveTab(tabTitle, "TaskBoard", contextId, "#6366F1");
             }
         }
     });

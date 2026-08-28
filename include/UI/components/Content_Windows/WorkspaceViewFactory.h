@@ -11,6 +11,7 @@
 #include "page/NetworkTestPage.h"
 #include "page/wsHomePage.h"
 #include "page/wsNotePage.h"
+#include "page/wsTaskBoardPage.h"
 
 class WorkspaceViewFactory
 {
@@ -21,14 +22,14 @@ public:
         QString type = ws.type.toLower();
         if (type == "lab" || type == "test") {
             return new NetworkTestPage(ws, parent);
-        }else if (type == "note") {
+        } else if (type == "note") {
             return new wsNotePage(ws, repo, parent);
-        }
-        else {
+        } else if (type == "taskboard" || type == "board" || type == "tasks" || type == "kanban") {
+            return new wsTaskBoardPage(ws, repo, parent);
+        } else {
             return new wsHomePage(ws, repo, parent);
         }
     }
-
 };
 
 #endif //TASKHELPER_WORKSPACEVIEWFACTORY_H

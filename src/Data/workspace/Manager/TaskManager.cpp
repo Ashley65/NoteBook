@@ -129,32 +129,35 @@ QUuid TaskManager::createTask(const TaskCreateRequest& request)
 
 void TaskManager::setCompleted(const QUuid& taskId, bool completed)
 {
+    setTaskStatus(taskId, completed ? TaskStatus::Completed : TaskStatus::Pending);
+}
+
+void TaskManager::setTaskStatus(const QUuid& taskId, TaskStatus status)
+{
     if (!m_repo || taskId.isNull())
     {
         return;
     }
 
-
     Task task = m_repo->getTaskById(taskId);
-    if (task.id.isNull())
+    if (task.id.isNull() || task.status == status)
     {
         return;
     }
 
-    const TaskStatus targetStatus = completed ? TaskStatus::Completed : TaskStatus::Pending;
-    if (task.status == targetStatus)
-    {
-        return;
+    task.status = status;
+    if (status == TaskStatus::Completed) {
+        task.completedAt = QDateTime::currentDateTime();
+    } else {
+        task.completedAt = QDateTime();
     }
 
-    task.status = targetStatus;
     m_repo->updateTask(task);
     emit tasksChanged(task.workspaceId);
 }
 
 void TaskManager::updateTask(const Task& task)
 {
-
     if (!m_repo || task.id.isNull() || task.workspaceId.isNull() || task.title.trimmed().isEmpty()) {
         return;
     }
@@ -181,4 +184,105 @@ void TaskManager::deleteTask(const QUuid& taskId)
 
     m_repo->deleteTask(taskId);
     emit tasksChanged(existing.workspaceId);
+}
+
+void TaskManager::addSubtask(const QUuid& taskId, const QString& title)
+{
+    if (!m_repo || taskId.isNull() || title.trimmed().isEmpty()) {
+        return;
+    }
+
+    Task task = m_repo->getTaskById(taskId);
+    if (task.id.isNull()) {
+        return;
+    }
+
+    SubTask st;
+    st.id = QUuid::createUuid();
+    st.taskId = taskId;
+    st.title = title.trimmed();
+    st.isCompleted = false;
+
+    task.subtasks.append(st);
+    m_repo->updateTask(task);
+    emit tasksChanged(task.workspaceId);
+}
+
+void TaskManager::toggleSubtask(const QUuid& taskId, const QUuid& subtaskId, bool completed)
+{
+    if (!m_repo || taskId.isNull() || subtaskId.isNull()) {
+        return;
+    }
+
+    Task task = m_repo->getTaskById(taskId);
+    if (task.id.isNull()) {
+        return;
+    }
+
+    bool changed = false;
+    for (auto& st : task.subtasks) {
+        if (st.id == subtaskId) {
+            st.isCompleted = completed;
+            changed = true;
+            break;
+        }
+    }
+
+    if (changed) {
+        m_repo->updateTask(task);
+        emit tasksChanged(task.workspaceId);
+    }
+}
+
+void TaskManager::deleteSubtask(const QUuid& taskId, const QUuid& subtaskId)
+{
+    if (!m_repo || taskId.isNull() || subtaskId.isNull()) {
+        return;
+    }
+
+    Task task = m_repo->getTaskById(taskId);
+    if (task.id.isNull()) {
+        return;
+    }
+
+    int idx = -1;
+    for (int i = 0; i < task.subtasks.size(); ++i) {
+        if (task.subtasks[i].id == subtaskId) {
+            idx = i;
+            break;
+        }
+    }
+
+    if (idx != -1) {
+        task.subtasks.removeAt(idx);
+        m_repo->updateTask(task);
+        emit tasksChanged(task.workspaceId);
+    }
+}
+
+void TaskManager::updateSubtask(const QUuid& taskId, const QUuid& subtaskId, const QString& title, bool completed)
+{
+    if (!m_repo || taskId.isNull() || subtaskId.isNull()) {
+        return;
+    }
+
+    Task task = m_repo->getTaskById(taskId);
+    if (task.id.isNull()) {
+        return;
+    }
+
+    bool changed = false;
+    for (auto& st : task.subtasks) {
+        if (st.id == subtaskId) {
+            st.title = title.trimmed();
+            st.isCompleted = completed;
+            changed = true;
+            break;
+        }
+    }
+
+    if (changed) {
+        m_repo->updateTask(task);
+        emit tasksChanged(task.workspaceId);
+    }
 }

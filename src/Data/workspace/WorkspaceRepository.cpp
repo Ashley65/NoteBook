@@ -5,6 +5,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
 
 WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
 {
@@ -585,6 +588,21 @@ void WorkspaceRepository::saveTasks()
         s.setValue("createdAt", tasks_[i].createdAt.toString(Qt::ISODate));
         s.setValue("dueDate", tasks_[i].dueDate.toString(Qt::ISODate));
         s.setValue("completedAt", tasks_[i].completedAt.toString(Qt::ISODate));
+
+        if (!tasks_[i].subtasks.isEmpty()) {
+            QJsonArray stArr;
+            for (const auto& st : tasks_[i].subtasks) {
+                QJsonObject stObj;
+                stObj["id"] = st.id.toString(QUuid::WithoutBraces);
+                stObj["taskId"] = st.taskId.toString(QUuid::WithoutBraces);
+                stObj["title"] = st.title;
+                stObj["isCompleted"] = st.isCompleted;
+                stArr.append(stObj);
+            }
+            s.setValue("subtasks", QString::fromUtf8(QJsonDocument(stArr).toJson(QJsonDocument::Compact)));
+        } else {
+            s.remove("subtasks");
+        }
     }
 
     s.endArray();
@@ -612,6 +630,21 @@ void WorkspaceRepository::loadTasks()
         task.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
         task.dueDate = QDateTime::fromString(s.value("dueDate").toString(), Qt::ISODate);
         task.completedAt = QDateTime::fromString(s.value("completedAt").toString(), Qt::ISODate);
+
+        if (s.contains("subtasks")) {
+            const QByteArray raw = s.value("subtasks").toByteArray();
+            const QJsonArray stArr = QJsonDocument::fromJson(raw).array();
+            for (const auto& val : stArr) {
+                const QJsonObject stObj = val.toObject();
+                SubTask st;
+                st.id = QUuid::fromString(stObj["id"].toString());
+                st.taskId = QUuid::fromString(stObj["taskId"].toString());
+                st.title = stObj["title"].toString();
+                st.isCompleted = stObj["isCompleted"].toBool();
+                task.subtasks.append(st);
+            }
+        }
+
         tasks_.append(task);
     }
 
