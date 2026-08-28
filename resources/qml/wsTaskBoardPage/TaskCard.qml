@@ -2,134 +2,400 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
-Rectangle {
-    id: cardRoot
+Item {
+    id: delegateRoot
     width: ListView.view ? ListView.view.width : 280
-    implicitHeight: mainLayout.implicitHeight + 24
+    height: cardRoot.implicitHeight + 6
+    z: cardRoot.Drag.active ? 9999 : 1
 
-    color: "#161C28"
-    radius: 10
-    border.color: hoverHandler.hovered ? "#3B4760" : "#242C3F"
-    border.width: 1
+    property string taskId: modelData.id || ""
+    property int currentStatus: modelData.status !== undefined ? modelData.status : 0
 
-    HoverHandler {
-        id: hoverHandler
-    }
+    Rectangle {
+        id: cardRoot
+        width: delegateRoot.width
+        implicitHeight: mainLayout.implicitHeight + 24
+        z: Drag.active ? 9999 : 1
 
-    ColumnLayout {
-        id: mainLayout
-        anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+        color: hoverHandler.hovered ? "#1C2433" : "#161C28"
+        radius: 10
+        border.color: Drag.active ? "#6366F1" : (hoverHandler.hovered ? "#3B4760" : "#242C3F")
+        border.width: Drag.active ? 2 : 1
 
-        // Top Row: Drag Handle + Checkbox + Title + Delete
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 8
+        scale: Drag.active ? 1.04 : 1.0
+        opacity: Drag.active ? 0.9 : 1.0
+        Behavior on scale { NumberAnimation { duration: 100 } }
+        Behavior on opacity { NumberAnimation { duration: 100 } }
 
-            // 6-dot drag grip handle
-            Text {
-                text: "⠿"
-                color: "#64748B"
-                font.pixelSize: 15
-                Layout.alignment: Qt.AlignVCenter
+        property string taskId: delegateRoot.taskId
+        property int currentStatus: delegateRoot.currentStatus
+
+        // Drag configuration
+        Drag.active: dragArea.drag.active
+        Drag.source: cardRoot
+        Drag.hotSpot.x: width / 2
+        Drag.hotSpot.y: height / 2
+        Drag.keys: ["task-card"]
+
+        HoverHandler {
+            id: hoverHandler
+        }
+
+        // Right-click context menu
+        Menu {
+            id: contextMenu
+            background: Rectangle {
+                color: "#161C28"
+                border.color: "#2A3348"
+                border.width: 1
+                radius: 8
             }
 
-            // Checkbox
-            Rectangle {
-                width: 18
-                height: 18
-                radius: 4
-                color: (modelData.status === 2) ? "#6366F1" : "#1E2538"
-                border.color: (modelData.status === 2) ? "#6366F1" : "#475569"
-                border.width: 1.5
-
-                Text {
-                    anchors.centerIn: parent
-                    text: "✓"
-                    color: "#FFFFFF"
-                    font.pixelSize: 11
-                    font.bold: true
-                    visible: modelData.status === 2
+            MenuItem {
+                text: "🔵 Move to To Do"
+                visible: cardRoot.currentStatus !== 0
+                contentItem: Text {
+                    text: parent.text
+                    color: "#93C5FD"
+                    font.pixelSize: 12
                 }
-
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (typeof taskBoard !== "undefined") {
-                            taskBoard.toggleTaskCompletion(modelData.id, modelData.status !== 2)
-                        }
+                onTriggered: {
+                    if (typeof taskBoard !== "undefined") {
+                        taskBoard.updateTaskStatus(cardRoot.taskId, 0)
                     }
                 }
             }
 
-            // Title
-            Text {
-                text: modelData.title || ""
-                color: (modelData.status === 2) ? "#94A3B8" : "#F1F5F9"
-                font.pixelSize: 13
-                font.weight: Font.DemiBold
-                font.strikeout: (modelData.status === 2)
-                elide: Text.ElideRight
-                Layout.fillWidth: true
+            MenuItem {
+                text: "🟠 Move to In Progress"
+                visible: cardRoot.currentStatus !== 1
+                contentItem: Text {
+                    text: parent.text
+                    color: "#FBBF24"
+                    font.pixelSize: 12
+                }
+                onTriggered: {
+                    if (typeof taskBoard !== "undefined") {
+                        taskBoard.updateTaskStatus(cardRoot.taskId, 1)
+                    }
+                }
             }
 
-            // Delete 'x' Button
-            Text {
-                text: "✕"
-                color: deleteArea.containsMouse ? "#EF4444" : "#64748B"
-                font.pixelSize: 12
-                Layout.alignment: Qt.AlignVCenter
+            MenuItem {
+                text: "🟢 Move to Completed"
+                visible: cardRoot.currentStatus !== 2
+                contentItem: Text {
+                    text: parent.text
+                    color: "#34D399"
+                    font.pixelSize: 12
+                }
+                onTriggered: {
+                    if (typeof taskBoard !== "undefined") {
+                        taskBoard.updateTaskStatus(cardRoot.taskId, 2)
+                    }
+                }
+            }
 
-                MouseArea {
-                    id: deleteArea
-                    anchors.fill: parent
-                    anchors.margins: -4
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: {
-                        if (typeof taskBoard !== "undefined") {
-                            taskBoard.deleteTask(modelData.id)
-                        }
+            MenuSeparator {
+                contentItem: Rectangle {
+                    implicitHeight: 1
+                    color: "#2A3348"
+                }
+            }
+
+            MenuItem {
+                text: "🗑 Delete Task"
+                contentItem: Text {
+                    text: parent.text
+                    color: "#F87171"
+                    font.pixelSize: 12
+                }
+                onTriggered: {
+                    if (typeof taskBoard !== "undefined") {
+                        taskBoard.deleteTask(cardRoot.taskId)
                     }
                 }
             }
         }
 
-        // Priority Badge Row
-        RowLayout {
-            Layout.fillWidth: true
-            visible: modelData.priorityText !== undefined
+        // Right click mouse area for entire card
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.RightButton
+            onClicked: (mouse) => {
+                if (mouse.button === Qt.RightButton) {
+                    contextMenu.popup()
+                }
+            }
+        }
 
-            Rectangle {
-                id: prioPill
-                implicitWidth: prioLabel.implicitWidth + 14
-                implicitHeight: 20
-                radius: 10
+        ColumnLayout {
+            id: mainLayout
+            anchors.fill: parent
+            anchors.margins: 12
+            spacing: 8
 
-                // Dynamic coloring for Priority
-                readonly property color pillColor: {
-                    switch (modelData.priority) {
-                        case 0: return "#38BDF8"; // Low (Sky blue)
-                        case 1: return "#F59E0B"; // Medium (Amber)
-                        case 2: return "#EF4444"; // High (Red)
-                        case 3: return "#A855F7"; // Critical (Purple)
-                        default: return "#F59E0B";
+            // Top Row: Drag Handle + Checkbox + Title + Delete
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+
+                // 6-dot drag grip handle with drag area
+                Item {
+                    width: 16
+                    height: 20
+                    Layout.alignment: Qt.AlignVCenter
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "⠿"
+                        color: dragArea.drag.active ? "#6366F1" : (dragArea.containsMouse ? "#FFFFFF" : "#64748B")
+                        font.pixelSize: 15
+                    }
+
+                    MouseArea {
+                        id: dragArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: drag.active ? Qt.ClosedHandCursor : Qt.OpenHandCursor
+                        drag.target: cardRoot
+                        drag.axis: Drag.XAndYAxis
+                        onReleased: {
+                            cardRoot.Drag.drop()
+                            cardRoot.x = 0
+                            cardRoot.y = 0
+                        }
                     }
                 }
 
-                color: Qt.rgba(pillColor.r, pillColor.g, pillColor.b, 0.15)
-                border.color: Qt.rgba(pillColor.r, pillColor.g, pillColor.b, 0.3)
+                // Checkbox
+                Rectangle {
+                    width: 18
+                    height: 18
+                    radius: 4
+                    color: (cardRoot.currentStatus === 2) ? "#6366F1" : "#1E2538"
+                    border.color: (cardRoot.currentStatus === 2) ? "#6366F1" : "#475569"
+                    border.width: 1.5
+
+                    Text {
+                        anchors.centerIn: parent
+                        text: "✓"
+                        color: "#FFFFFF"
+                        font.pixelSize: 11
+                        font.bold: true
+                        visible: cardRoot.currentStatus === 2
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (typeof taskBoard !== "undefined") {
+                                taskBoard.toggleTaskCompletion(cardRoot.taskId, cardRoot.currentStatus !== 2)
+                            }
+                        }
+                    }
+                }
+
+                // Title
+                Text {
+                    text: modelData.title || ""
+                    color: (cardRoot.currentStatus === 2) ? "#94A3B8" : "#F1F5F9"
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                    font.strikeout: (cardRoot.currentStatus === 2)
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+
+                // Delete 'x' Button
+                Text {
+                    text: "✕"
+                    color: deleteArea.containsMouse ? "#EF4444" : "#64748B"
+                    font.pixelSize: 12
+                    Layout.alignment: Qt.AlignVCenter
+
+                    MouseArea {
+                        id: deleteArea
+                        anchors.fill: parent
+                        anchors.margins: -4
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (typeof taskBoard !== "undefined") {
+                                taskBoard.deleteTask(cardRoot.taskId)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Priority Badge Row + Quick Move Action Buttons
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                // Priority Pill
+                Rectangle {
+                    id: prioPill
+                    visible: modelData.priorityText !== undefined
+                    implicitWidth: prioLabel.implicitWidth + 14
+                    implicitHeight: 20
+                    radius: 10
+
+                    readonly property color pillColor: {
+                        switch (modelData.priority) {
+                            case 0: return "#38BDF8"; // Low (Sky blue)
+                            case 1: return "#F59E0B"; // Medium (Amber)
+                            case 2: return "#EF4444"; // High (Red)
+                            case 3: return "#A855F7"; // Critical (Purple)
+                            default: return "#F59E0B";
+                        }
+                    }
+
+                    color: Qt.rgba(pillColor.r, pillColor.g, pillColor.b, 0.15)
+                    border.color: Qt.rgba(pillColor.r, pillColor.g, pillColor.b, 0.3)
+                    border.width: 1
+
+                    Text {
+                        id: prioLabel
+                        anchors.centerIn: parent
+                        text: modelData.priorityText || "Medium"
+                        color: prioPill.pillColor
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+                }
+
+                Item {
+                    Layout.fillWidth: true
+                }
+
+                // Quick Move: "Start" (To In Progress)
+                Rectangle {
+                    visible: cardRoot.currentStatus === 0
+                    implicitWidth: btnStartText.implicitWidth + 12
+                    implicitHeight: 20
+                    radius: 4
+                    color: btnStartMouse.containsMouse ? "#D97706" : "#241F15"
+                    border.color: "#B45309"
+                    border.width: 1
+
+                    Text {
+                        id: btnStartText
+                        anchors.centerIn: parent
+                        text: "▶ Start"
+                        color: btnStartMouse.containsMouse ? "#FFFFFF" : "#F59E0B"
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+
+                    MouseArea {
+                        id: btnStartMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (typeof taskBoard !== "undefined") {
+                                taskBoard.updateTaskStatus(cardRoot.taskId, 1)
+                            }
+                        }
+                    }
+                }
+
+                // Quick Move: In Progress -> "Done" or "Back to To Do"
+                RowLayout {
+                    visible: cardRoot.currentStatus === 1
+                    spacing: 4
+
+                    Rectangle {
+                        implicitWidth: btnBackText.implicitWidth + 8
+                        implicitHeight: 20
+                        radius: 4
+                        color: btnBackMouse.containsMouse ? "#2563EB" : "#172033"
+                        border.color: "#1D4ED8"
+                        border.width: 1
+
+                        Text {
+                            id: btnBackText
+                            anchors.centerIn: parent
+                            text: "◀ To Do"
+                            color: btnBackMouse.containsMouse ? "#FFFFFF" : "#93C5FD"
+                            font.pixelSize: 10
+                        }
+
+                        MouseArea {
+                            id: btnBackMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (typeof taskBoard !== "undefined") {
+                                taskBoard.updateTaskStatus(cardRoot.taskId, 0)
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    implicitWidth: btnDoneText.implicitWidth + 8
+                    implicitHeight: 20
+                    radius: 4
+                    color: btnDoneMouse.containsMouse ? "#059669" : "#142921"
+                    border.color: "#047857"
+                    border.width: 1
+
+                    Text {
+                        id: btnDoneText
+                        anchors.centerIn: parent
+                        text: "✓ Done"
+                        color: btnDoneMouse.containsMouse ? "#FFFFFF" : "#34D399"
+                        font.pixelSize: 10
+                        font.bold: true
+                    }
+
+                    MouseArea {
+                        id: btnDoneMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            if (typeof taskBoard !== "undefined") {
+                                taskBoard.updateTaskStatus(cardRoot.taskId, 2)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Quick Move: Completed -> "Reopen"
+            Rectangle {
+                visible: cardRoot.currentStatus === 2
+                implicitWidth: btnReopenText.implicitWidth + 10
+                implicitHeight: 20
+                radius: 4
+                color: btnReopenMouse.containsMouse ? "#242C3F" : "#1A202C"
+                border.color: "#334155"
                 border.width: 1
 
                 Text {
-                    id: prioLabel
+                    id: btnReopenText
                     anchors.centerIn: parent
-                    text: modelData.priorityText || "Medium"
-                    color: prioPill.pillColor
+                    text: "↩ Reopen"
+                    color: btnReopenMouse.containsMouse ? "#FFFFFF" : "#94A3B8"
                     font.pixelSize: 10
-                    font.bold: true
+                }
+
+                MouseArea {
+                    id: btnReopenMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        if (typeof taskBoard !== "undefined") {
+                            taskBoard.updateTaskStatus(cardRoot.taskId, 0)
+                        }
+                    }
                 }
             }
         }
@@ -139,7 +405,7 @@ Rectangle {
             Layout.fillWidth: true
             visible: text.length > 0
             text: {
-                if (modelData.status === 2 && modelData.finishedText && modelData.finishedText.length > 0) {
+                if (cardRoot.currentStatus === 2 && modelData.finishedText && modelData.finishedText.length > 0) {
                     return modelData.finishedText;
                 }
                 return modelData.dueStatusText || "";
@@ -211,4 +477,5 @@ Rectangle {
             }
         }
     }
+}
 }

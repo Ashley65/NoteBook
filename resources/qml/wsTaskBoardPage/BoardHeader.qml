@@ -230,7 +230,8 @@ ColumnLayout {
         title: "Create New Task"
         modal: true
         anchors.centerIn: parent
-        width: 480
+        width: 380
+        height: 400
         padding: 20
 
         background: Rectangle {
@@ -299,36 +300,159 @@ ColumnLayout {
                 }
             }
 
-            Text {
-                text: "Priority"
-                color: "#94A3B8"
-                font.pixelSize: 12
+            RowLayout {
+                spacing: 12
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "Priority"
+                        color: "#94A3B8"
+                        font.pixelSize: 12
+                    }
+
+                    ComboBox {
+                        id: newPrioCombo
+                        Layout.fillWidth: true
+                        implicitHeight: 36
+                        model: ["Low", "Medium", "High", "Critical"]
+                        currentIndex: 1 // Default Medium
+
+                        background: Rectangle {
+                            color: "#111520"
+                            border.color: "#2A3348"
+                            radius: 6
+                        }
+                        contentItem: Text {
+                            leftPadding: 10
+                            text: newPrioCombo.displayText
+                            color: "#FFFFFF"
+                            font.pixelSize: 12
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+
+                    Text {
+                        text: "Due Date"
+                        color: "#94A3B8"
+                        font.pixelSize: 12
+                    }
+
+                    Rectangle {
+                        Layout.fillWidth: true
+                        implicitHeight: 36
+                        radius: 6
+                        color: "#111520"
+                        border.color: dueDateInput.activeFocus ? "#6366F1" : "#2A3348"
+
+                        TextInput {
+                            id: dueDateInput
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            color: "#FFFFFF"
+                            font.pixelSize: 13
+                            selectByMouse: true
+
+                            Text {
+                                anchors.fill: parent
+                                text: "YYYY-MM-DD (Optional)"
+                                color: "#475569"
+                                font.pixelSize: 13
+                                visible: !dueDateInput.text && !dueDateInput.activeFocus
+                            }
+                        }
+                    }
+
+                    // Quick date chips
+                    RowLayout {
+                        spacing: 6
+                        Layout.fillWidth: true
+
+                        function formatDate(d) {
+                            var year = d.getFullYear();
+                            var month = (d.getMonth() + 1).toString().padStart(2, '0');
+                            var day = d.getDate().toString().padStart(2, '0');
+                            return year + "-" + month + "-" + day;
+                        }
+
+                        Repeater {
+                            model: [
+                                { label: "Today", days: 0 },
+                                { label: "Tomorrow", days: 1 },
+                                { label: "+1 Wk", days: 7 }
+                            ]
+
+                            delegate: Rectangle {
+                                implicitWidth: chipText.implicitWidth + 10
+                                implicitHeight: 22
+                                radius: 4
+                                color: chipMouse.containsMouse ? "#242C3F" : "#1A202C"
+                                border.color: "#2D3748"
+                                border.width: 1
+
+                                Text {
+                                    id: chipText
+                                    anchors.centerIn: parent
+                                    text: modelData.label
+                                    color: "#94A3B8"
+                                    font.pixelSize: 10
+                                }
+
+                                MouseArea {
+                                    id: chipMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    cursorShape: Qt.PointingHandCursor
+                                    onClicked: {
+                                        var target = new Date();
+                                        target.setDate(target.getDate() + modelData.days);
+                                        dueDateInput.text = parent.parent.formatDate(target);
+                                    }
+                                }
+                            }
+                        }
+
+                        // Clear Date Chip
+                        Rectangle {
+                            visible: dueDateInput.text.length > 0
+                            implicitWidth: clearChipText.implicitWidth + 10
+                            implicitHeight: 22
+                            radius: 4
+                            color: clearChipMouse.containsMouse ? "#3B1D22" : "#24171A"
+                            border.color: "#5C242A"
+                            border.width: 1
+
+                            Text {
+                                id: clearChipText
+                                anchors.centerIn: parent
+                                text: "Clear"
+                                color: "#F87171"
+                                font.pixelSize: 10
+                            }
+
+                            MouseArea {
+                                id: clearChipMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                cursorShape: Qt.PointingHandCursor
+                                onClicked: dueDateInput.text = ""
+                            }
+                        }
+                    }
+                }
             }
 
-            ComboBox {
-                id: newPrioCombo
-                Layout.fillWidth: true
-                implicitHeight: 36
-                model: ["Low", "Medium", "High", "Critical"]
-                currentIndex: 1 // Default Medium
-
-                background: Rectangle {
-                    color: "#111520"
-                    border.color: "#2A3348"
-                    radius: 6
-                }
-                contentItem: Text {
-                    leftPadding: 10
-                    text: newPrioCombo.displayText
-                    color: "#FFFFFF"
-                    font.pixelSize: 12
-                    verticalAlignment: Text.AlignVCenter
-                }
-            }
         }
 
         footer: DialogButtonBox {
-            background: Rectangle { color: "transparent" }
+            background: Rectangle {
+                color: "transparent"
+            }
             alignment: Qt.AlignRight
 
             Button {
@@ -346,7 +470,10 @@ ColumnLayout {
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
                 }
-                onClicked: addTaskDialog.reject()
+                onClicked: {
+                    dueDateInput.text = ""
+                    addTaskDialog.reject()
+                }
             }
 
             Button {
@@ -367,11 +494,31 @@ ColumnLayout {
                 }
                 onClicked: {
                     if (taskTitleInput.text.trim() !== "") {
+                        var parsedDue = undefined;
+                        var rawDue = dueDateInput.text.trim();
+                        if (rawDue !== "") {
+                            var parts = rawDue.split("-");
+                            if (parts.length === 3) {
+                                var y = parseInt(parts[0], 10);
+                                var m = parseInt(parts[1], 10) - 1;
+                                var d = parseInt(parts[2], 10);
+                                var dt = new Date(y, m, d, 23, 59, 59);
+                                if (!isNaN(dt.getTime())) {
+                                    parsedDue = dt;
+                                }
+                            }
+                        }
+
                         if (typeof taskBoard !== "undefined") {
-                            taskBoard.createNewTask(taskTitleInput.text, taskDescInput.text, newPrioCombo.currentIndex)
+                            if (parsedDue) {
+                                taskBoard.createNewTask(taskTitleInput.text, taskDescInput.text, newPrioCombo.currentIndex, parsedDue);
+                            } else {
+                                taskBoard.createNewTask(taskTitleInput.text, taskDescInput.text, newPrioCombo.currentIndex);
+                            }
                         }
                         taskTitleInput.text = ""
                         taskDescInput.text = ""
+                        dueDateInput.text = ""
                         addTaskDialog.accept()
                     }
                 }

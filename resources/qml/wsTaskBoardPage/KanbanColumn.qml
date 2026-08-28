@@ -15,6 +15,30 @@ Rectangle {
     border.color: "#1F2637"
     border.width: 1
 
+    DropArea {
+        id: dropArea
+        anchors.fill: parent
+        keys: ["task-card"]
+        onDropped: (drop) => {
+            if (drop.source && drop.source.taskId) {
+                if (typeof taskBoard !== "undefined") {
+                    taskBoard.updateTaskStatus(drop.source.taskId, columnRoot.targetStatus);
+                }
+            }
+        }
+    }
+
+    // Drop Target Highlight
+    Rectangle {
+        anchors.fill: parent
+        radius: 12
+        color: columnRoot.statusColor
+        opacity: dropArea.containsDrag ? 0.08 : 0.0
+        border.color: columnRoot.statusColor
+        border.width: dropArea.containsDrag ? 2 : 0
+        visible: dropArea.containsDrag
+    }
+
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 14
@@ -70,7 +94,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: 10
-            clip: true
+            clip: false
             model: columnRoot.taskModel
 
             delegate: TaskCard {}
