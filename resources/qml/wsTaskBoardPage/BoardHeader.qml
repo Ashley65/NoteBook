@@ -1,0 +1,381 @@
+import QtQuick 2.15
+import QtQuick.Controls 2.15
+import QtQuick.Layouts 1.15
+
+ColumnLayout {
+    id: headerRoot
+    spacing: 16
+
+    // Top Title & Subtitle
+    ColumnLayout {
+        spacing: 4
+
+        RowLayout {
+            spacing: 8
+
+            Text {
+                text: "Tasks & Kanban Board"
+                color: "#FFFFFF"
+                font.pixelSize: 22
+                font.bold: true
+            }
+
+            Text {
+                visible: typeof taskBoard !== "undefined" && taskBoard.activeProjectName !== ""
+                text: "— " + (typeof taskBoard !== "undefined" ? taskBoard.activeProjectName : "")
+                color: "#94A3B8"
+                font.pixelSize: 20
+                font.weight: Font.DemiBold
+            }
+        }
+
+        Text {
+            text: "Manage tasks, assign priority levels, and track deadlines."
+            color: "#64748B"
+            font.pixelSize: 13
+        }
+    }
+
+    // Controls Row: Search + Filter + Sort + Add Task
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 12
+
+        // Search Bar
+        Rectangle {
+            Layout.preferredWidth: 320
+            Layout.preferredHeight: 36
+            radius: 8
+            color: "#131824"
+            border.color: searchInput.activeFocus ? "#6366F1" : "#242C3F"
+            border.width: 1
+
+            RowLayout {
+                anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
+                spacing: 8
+
+                Text {
+                    text: "🔍"
+                    font.pixelSize: 12
+                    color: "#64748B"
+                }
+
+                TextInput {
+                    id: searchInput
+                    Layout.fillWidth: true
+                    color: "#F1F5F9"
+                    font.pixelSize: 13
+                    selectByMouse: true
+                    clip: true
+
+                    Text {
+                        anchors.fill: parent
+                        text: "Search tasks, linked notes..."
+                        color: "#475569"
+                        font.pixelSize: 13
+                        visible: !searchInput.text && !searchInput.activeFocus
+                    }
+
+                    onTextChanged: {
+                        if (typeof taskBoard !== "undefined") {
+                            taskBoard.searchQuery = text
+                        }
+                    }
+                }
+
+                Text {
+                    text: "✕"
+                    color: "#64748B"
+                    font.pixelSize: 11
+                    visible: searchInput.text.length > 0
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: searchInput.text = ""
+                    }
+                }
+            }
+        }
+
+        Item {
+            Layout.fillWidth: true
+        }
+
+        // Filter Dropdown
+        RowLayout {
+            spacing: 6
+
+            Text {
+                text: "Filter:"
+                color: "#64748B"
+                font.pixelSize: 12
+            }
+
+            ComboBox {
+                id: filterCombo
+                model: ["All Priorities", "Low", "Medium", "High", "Critical"]
+                currentIndex: 0
+                implicitHeight: 36
+                implicitWidth: 130
+
+                background: Rectangle {
+                    color: "#131824"
+                    border.color: "#242C3F"
+                    border.width: 1
+                    radius: 8
+                }
+
+                contentItem: Text {
+                    leftPadding: 10
+                    text: filterCombo.displayText
+                    color: "#E2E8F0"
+                    font.pixelSize: 12
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+
+                onCurrentIndexChanged: {
+                    if (typeof taskBoard !== "undefined") {
+                        // 0 = All (-1), 1 = Low (0), 2 = Medium (1), 3 = High (2), 4 = Critical (3)
+                        taskBoard.priorityFilter = currentIndex - 1;
+                    }
+                }
+            }
+        }
+
+        // Sort Dropdown
+        RowLayout {
+            spacing: 6
+
+            Text {
+                text: "Sort:"
+                color: "#64748B"
+                font.pixelSize: 12
+            }
+
+            ComboBox {
+                id: sortCombo
+                model: ["Due Date (Earliest)", "Priority", "Title (A-Z)", "Newest Created"]
+                currentIndex: 0
+                implicitHeight: 36
+                implicitWidth: 160
+
+                background: Rectangle {
+                    color: "#131824"
+                    border.color: "#242C3F"
+                    border.width: 1
+                    radius: 8
+                }
+
+                contentItem: Text {
+                    leftPadding: 10
+                    text: sortCombo.displayText
+                    color: "#E2E8F0"
+                    font.pixelSize: 12
+                    verticalAlignment: Text.AlignVCenter
+                    elide: Text.ElideRight
+                }
+
+                onCurrentIndexChanged: {
+                    if (typeof taskBoard !== "undefined") {
+                        taskBoard.sortMode = currentIndex;
+                    }
+                }
+            }
+        }
+
+        // + Add Task Button
+        Button {
+            id: btnAddTask
+            text: "+ Add Task"
+            implicitHeight: 36
+            implicitWidth: 110
+
+            contentItem: RowLayout {
+                spacing: 4
+                anchors.centerIn: parent
+
+                Text {
+                    text: "+"
+                    color: "#FFFFFF"
+                    font.pixelSize: 14
+                    font.bold: true
+                }
+                Text {
+                    text: "Add Task"
+                    color: "#FFFFFF"
+                    font.pixelSize: 13
+                    font.weight: Font.DemiBold
+                }
+            }
+
+            background: Rectangle {
+                color: btnAddTask.hovered ? "#4F46E5" : "#6366F1"
+                radius: 8
+
+                Behavior on color {
+                    ColorAnimation { duration: 150 }
+                }
+            }
+
+            onClicked: addTaskDialog.open()
+        }
+    }
+
+    // Add Task Dialog Popup
+    Dialog {
+        id: addTaskDialog
+        title: "Create New Task"
+        modal: true
+        anchors.centerIn: parent
+        width: 480
+        padding: 20
+
+        background: Rectangle {
+            color: "#161C28"
+            border.color: "#2A3348"
+            border.width: 1
+            radius: 12
+        }
+
+        header: Text {
+            text: "Create New Task"
+            color: "#FFFFFF"
+            font.pixelSize: 16
+            font.bold: true
+            padding: 16
+            bottomPadding: 0
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 12
+
+            Text {
+                text: "Task Title"
+                color: "#94A3B8"
+                font.pixelSize: 12
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 36
+                radius: 6
+                color: "#111520"
+                border.color: taskTitleInput.activeFocus ? "#6366F1" : "#2A3348"
+
+                TextInput {
+                    id: taskTitleInput
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    color: "#FFFFFF"
+                    font.pixelSize: 13
+                    selectByMouse: true
+                }
+            }
+
+            Text {
+                text: "Description (Optional)"
+                color: "#94A3B8"
+                font.pixelSize: 12
+            }
+
+            Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: 60
+                radius: 6
+                color: "#111520"
+                border.color: taskDescInput.activeFocus ? "#6366F1" : "#2A3348"
+
+                TextArea {
+                    id: taskDescInput
+                    anchors.fill: parent
+                    anchors.margins: 4
+                    color: "#FFFFFF"
+                    font.pixelSize: 12
+                    wrapMode: TextEdit.Wrap
+                    selectByMouse: true
+                }
+            }
+
+            Text {
+                text: "Priority"
+                color: "#94A3B8"
+                font.pixelSize: 12
+            }
+
+            ComboBox {
+                id: newPrioCombo
+                Layout.fillWidth: true
+                implicitHeight: 36
+                model: ["Low", "Medium", "High", "Critical"]
+                currentIndex: 1 // Default Medium
+
+                background: Rectangle {
+                    color: "#111520"
+                    border.color: "#2A3348"
+                    radius: 6
+                }
+                contentItem: Text {
+                    leftPadding: 10
+                    text: newPrioCombo.displayText
+                    color: "#FFFFFF"
+                    font.pixelSize: 12
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+        }
+
+        footer: DialogButtonBox {
+            background: Rectangle { color: "transparent" }
+            alignment: Qt.AlignRight
+
+            Button {
+                text: "Cancel"
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+                background: Rectangle {
+                    color: "#1E2538"
+                    radius: 6
+                    implicitHeight: 32
+                    implicitWidth: 70
+                }
+                contentItem: Text {
+                    text: "Cancel"
+                    color: "#94A3B8"
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: addTaskDialog.reject()
+            }
+
+            Button {
+                text: "Create"
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+                background: Rectangle {
+                    color: "#6366F1"
+                    radius: 6
+                    implicitHeight: 32
+                    implicitWidth: 70
+                }
+                contentItem: Text {
+                    text: "Create"
+                    color: "#FFFFFF"
+                    font.bold: true
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                }
+                onClicked: {
+                    if (taskTitleInput.text.trim() !== "") {
+                        if (typeof taskBoard !== "undefined") {
+                            taskBoard.createNewTask(taskTitleInput.text, taskDescInput.text, newPrioCombo.currentIndex)
+                        }
+                        taskTitleInput.text = ""
+                        taskDescInput.text = ""
+                        addTaskDialog.accept()
+                    }
+                }
+            }
+        }
+    }
+}
