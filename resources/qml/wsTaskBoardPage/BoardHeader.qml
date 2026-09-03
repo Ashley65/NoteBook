@@ -336,6 +336,7 @@ ColumnLayout {
 
                 ColumnLayout {
                     Layout.fillWidth: true
+                    spacing: 6
 
                     Text {
                         text: "Due Date"
@@ -357,7 +358,7 @@ ColumnLayout {
                             color: "#FFFFFF"
                             font.pixelSize: 13
                             selectByMouse: true
-
+                            inputMask: "9999-99-99; "
                             Text {
                                 anchors.fill: parent
                                 text: "YYYY-MM-DD (Optional)"
@@ -370,15 +371,9 @@ ColumnLayout {
 
                     // Quick date chips
                     RowLayout {
+                        id: chipsRow
                         spacing: 6
                         Layout.fillWidth: true
-
-                        function formatDate(d) {
-                            var year = d.getFullYear();
-                            var month = (d.getMonth() + 1).toString().padStart(2, '0');
-                            var day = d.getDate().toString().padStart(2, '0');
-                            return year + "-" + month + "-" + day;
-                        }
 
                         Repeater {
                             model: [
@@ -388,7 +383,7 @@ ColumnLayout {
                             ]
 
                             delegate: Rectangle {
-                                implicitWidth: chipText.implicitWidth + 10
+                                implicitWidth: chipText.implicitWidth + 12
                                 implicitHeight: 22
                                 radius: 4
                                 color: chipMouse.containsMouse ? "#242C3F" : "#1A202C"
@@ -411,36 +406,9 @@ ColumnLayout {
                                     onClicked: {
                                         var target = new Date();
                                         target.setDate(target.getDate() + modelData.days);
-                                        dueDateInput.text = parent.parent.formatDate(target);
+                                        dueDateInput.text = Qt.formatDate(target, "yyyy-MM-dd");
                                     }
                                 }
-                            }
-                        }
-
-                        // Clear Date Chip
-                        Rectangle {
-                            visible: dueDateInput.text.length > 0
-                            implicitWidth: clearChipText.implicitWidth + 10
-                            implicitHeight: 22
-                            radius: 4
-                            color: clearChipMouse.containsMouse ? "#3B1D22" : "#24171A"
-                            border.color: "#5C242A"
-                            border.width: 1
-
-                            Text {
-                                id: clearChipText
-                                anchors.centerIn: parent
-                                text: "Clear"
-                                color: "#F87171"
-                                font.pixelSize: 10
-                            }
-
-                            MouseArea {
-                                id: clearChipMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: dueDateInput.text = ""
                             }
                         }
                     }
