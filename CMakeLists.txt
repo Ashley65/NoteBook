@@ -93,7 +93,8 @@ set (SOURCE_FILES
         src/UI/componets/Side_Bar/nu_componets/CoreNavigationSection.cpp
         src/UI/componets/Side_Bar/nu_componets/FooterSection.cpp
         src/UI/componets/Side_Bar/nu_componets/ProjectsSection.cpp
-        src/UI/componets/Content_Windows/Page/wsTaskBoardPage.cpp)
+        src/UI/componets/Content_Windows/Page/wsTaskBoardPage.cpp
+        src/UI/componets/Content_Windows/Page/wsNoteListPage.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)

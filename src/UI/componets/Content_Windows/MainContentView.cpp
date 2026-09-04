@@ -5,6 +5,7 @@
 #include <UI/components/Content_Windows/MainContentView.h>
 #include <UI/components/Content_Windows/WorkspaceViewFactory.h>
 #include <UI/components/Content_Windows/page/wsNotePage.h>
+#include <UI/components/Content_Windows/page/wsNoteListPage.h>
 #include <UI/components/Content_Windows/page/wsTaskBoardPage.h>
 #include <UI/components/Content_Windows/page/wsHomePage.h>
 #include <helpers/Workspace.h>
@@ -107,6 +108,47 @@ void MainContentView::loadNoteView(const Note& note)
     } else {
         if (wsNotePage* page = qobject_cast<wsNotePage*>(views_[key])) {
             page->loadNote(note.id.toString(QUuid::WithoutBraces));
+        }
+    }
+
+    setCurrentWidget(views_[key]);
+}
+
+void MainContentView::loadNoteListView(const Workspace& ws, const Project& project)
+{
+    if (!m_repo || ws.id.isNull()) return;
+
+    const QUuid contextId = !project.id.isNull() ? project.id : ws.id;
+    const QString key = "notelist_" + contextId.toString(QUuid::WithoutBraces);
+
+    if (!views_.contains(key))
+    {
+        Workspace noteListWs = ws;
+        noteListWs.type = "notelist";
+
+        IWorkspaceView* listView = WorkspaceViewFactory::createWorkspaceView(noteListWs, m_repo, this);
+        if (!listView) return;
+
+        if (wsNoteListPage* page = qobject_cast<wsNoteListPage*>(listView)) {
+            if (!project.id.isNull()) {
+                page->setActiveProject(project);
+            }
+            connect(page, &wsNoteListPage::noteOpenRequested, this, [this](const QString& noteId) {
+                emit noteOpenRequested(noteId);
+            });
+        }
+
+        views_[key] = listView;
+        addWidget(listView);
+    }
+    else
+    {
+        if (wsNoteListPage* page = qobject_cast<wsNoteListPage*>(views_[key])) {
+            if (!project.id.isNull()) {
+                page->setActiveProject(project);
+            } else {
+                page->updateWorkspace(ws);
+            }
         }
     }
 

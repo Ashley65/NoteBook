@@ -17,6 +17,7 @@
         <file>qml/wsTaskBoardPage/BoardHeader.qml</file>
         <file>qml/wsTaskBoardPage/KanbanColumn.qml</file>
         <file>qml/wsTaskBoardPage/TaskCard.qml</file>
+        <file>qml/wsNoteListLinker.qml</file>
         <file>qml/warningBox/NoteDeletion.qml</file>
         <file>qml/components/TabBar.qml</file>
         <file>icons/delete-icon.svg</file>

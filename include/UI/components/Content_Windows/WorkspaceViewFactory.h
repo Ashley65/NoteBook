@@ -12,6 +12,7 @@
 #include "page/wsHomePage.h"
 #include "page/wsNotePage.h"
 #include "page/wsTaskBoardPage.h"
+#include "Page/wsNoteListPage.h"
 
 class WorkspaceViewFactory
 {
@@ -24,6 +25,8 @@ public:
             return new NetworkTestPage(ws, parent);
         } else if (type == "note") {
             return new wsNotePage(ws, repo, parent);
+        } else if (type == "notelist") {
+            return new wsNoteListPage(ws, repo, parent);
         } else if (type == "taskboard" || type == "board" || type == "tasks" || type == "kanban") {
             return new wsTaskBoardPage(ws, repo, parent);
         } else {
