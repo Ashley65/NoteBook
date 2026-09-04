@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+//import "wsNotePage" as WsNotePage
 
 Item {
     id: root
@@ -42,7 +43,7 @@ Item {
                 Rectangle {
                     visible: typeof noteListPage !== "undefined" && noteListPage.isProjectScoped
                     height: 24
-                    width: scopeRow.implicitWidth + 16
+                    width: scopeRow.implicitWidth + 20
                     radius: 12
                     color: Qt.rgba(0.06, 0.72, 0.51, 0.15)
                     border.color: Qt.rgba(0.06, 0.72, 0.51, 0.35)
@@ -73,6 +74,7 @@ Item {
                     text: typeof noteListPage !== "undefined" ? "(" + noteListPage.totalNoteCount + ")" : ""
                     color: root.textMuted
                     font.pixelSize: 14
+                    Layout.leftMargin: 20
                 }
             }
 
