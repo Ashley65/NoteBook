@@ -4,14 +4,18 @@
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
+#include <QSaveFile>
 #include <QFileInfo>
+#include <QDebug>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QRegularExpression>
 
 WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
 {
-    // LINK: Load existing workspaces and tasks from persistent storage
+    // LINK: Initialize persistence schema and load existing workspaces and tasks
+    initializeSchema();
     loadWorkspaces();
     loadProjects();
     loadTasks();
@@ -839,7 +843,7 @@ QUuid WorkspaceRepository::defaultProjectForWorkspace(const QUuid& workspaceId) 
     return {};
 }
 
-QString WorkspaceRepository::dataRootPath() const {
+QString WorkspaceRepository::dataRootPath() {
     const QString base = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir().mkpath(base);
     const QString fullPath = QDir(base).filePath("TaskHelperData/workspace");
@@ -849,6 +853,22 @@ QString WorkspaceRepository::dataRootPath() const {
 
 QString WorkspaceRepository::settingsFilePath() const {
     return QDir(dataRootPath()).filePath("data.ini");
+}
+
+void WorkspaceRepository::initializeSchema() {
+    QSettings s(settingsFilePath(), QSettings::IniFormat);
+    const int currentVersion = 1;
+    if (!s.contains("schemaVersion")) {
+        s.setValue("schemaVersion", currentVersion);
+        s.sync();
+    } else {
+        int version = s.value("schemaVersion", 0).toInt();
+        if (version < currentVersion) {
+            // Future migration hook can be dispatched here as format versions change
+            s.setValue("schemaVersion", currentVersion);
+            s.sync();
+        }
+    }
 }
 
 QString WorkspaceRepository::projectPath(const QUuid &workspaceId, const QUuid &projectId) const {
@@ -877,15 +897,30 @@ QString WorkspaceRepository::readNoteContentFromFile(const Note& note) const {
 }
 
 void WorkspaceRepository::saveNoteToFile(const Note& note) const {
-    // LINK: Save note content to disk as markdown file
+    // LINK: Save note content to disk as markdown file atomically
     QDir notesDir(QDir(projectPath(note.workspaceId, note.projectId)).filePath("notes"));
-    notesDir.mkpath(".");
+    if (!notesDir.exists() && !notesDir.mkpath(".")) {
+        qWarning() << "Failed to create notes directory:" << notesDir.path();
+        return;
+    }
     const QString noteFile = noteFilePath(note);
 
-    QFile file(noteFile);
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        file.write(note.content.toUtf8());
-        file.close();
+    QSaveFile file(noteFile);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        qWarning() << "Failed to open note file for atomic write:" << noteFile << file.errorString();
+        return;
+    }
+
+    QByteArray data = note.content.toUtf8();
+    qint64 bytesWritten = file.write(data);
+    if (bytesWritten != data.size()) {
+        qWarning() << "Incomplete note write (" << bytesWritten << "of" << data.size() << "bytes), canceling:" << noteFile;
+        file.cancelWriting();
+        return;
+    }
+
+    if (!file.commit()) {
+        qWarning() << "Failed to commit atomic note file:" << noteFile << file.errorString();
     }
 }
 
@@ -901,26 +936,47 @@ QString WorkspaceRepository::storeAttachmentFile(const FileAttachment& attachmen
     }
 
     QFileInfo sourceInfo(attachment.relativePath);
-    if (!sourceInfo.exists()) {
+    if (!sourceInfo.exists() || !sourceInfo.isFile()) {
+        qWarning() << "Attachment source does not exist or is not a file:" << attachment.relativePath;
         return "";
     }
 
-    // Create stored path: <project>/attachments/<attachmentUuid>/<originalFileName>
+    // Sanitize source filename to prevent directory traversal or invalid characters
+    QString cleanFileName = sourceInfo.fileName();
+    cleanFileName.replace(QRegularExpression("[/\\\\?%*:|\"<>]"), "_");
+    if (cleanFileName.startsWith(".")) {
+        cleanFileName.prepend("_");
+    }
+    if (cleanFileName.isEmpty()) {
+        cleanFileName = "attachment_" + uuidKey(attachment.id);
+    }
+
+    // Create stored path: <project>/attachments/<attachmentUuid>/<sanitizedFileName>
     QString attStorePath = QDir(projectPath(attachment.workspaceId, attachment.projectId))
         .filePath("attachments/" + uuidKey(attachment.id));
 
     QDir attStoreDir(attStorePath);
     if (!attStoreDir.mkpath(".")) {
+        qWarning() << "Failed to create attachment directory:" << attStorePath;
         return "";
     }
 
-    QString storedFile = QDir(attStorePath).filePath(sourceInfo.fileName());
+    QString storedFile = QDir(attStorePath).filePath(cleanFileName);
+
+    // If destination exists, handle collision or re-storing
+    if (QFile::exists(storedFile)) {
+        if (QFileInfo(storedFile).canonicalFilePath() == sourceInfo.canonicalFilePath()) {
+            return storedFile;
+        }
+        QFile::remove(storedFile);
+    }
 
     // Copy file to storage location
     if (QFile::copy(attachment.relativePath, storedFile)) {
         return storedFile;
     }
 
+    qWarning() << "Failed to copy attachment file from" << attachment.relativePath << "to" << storedFile;
     return "";
 }
 
@@ -932,10 +988,17 @@ void WorkspaceRepository::removeAttachmentFile(const FileAttachment& attachment)
 
     QFile::remove(attachment.relativePath);
 
-    // Also try to remove the attachment folder if empty
+    // Verify attFolderPath is strictly inside dataRootPath before recursive deletion
     QString attFolderPath = QDir(projectPath(attachment.workspaceId, attachment.projectId))
         .filePath("attachments/" + uuidKey(attachment.id));
-    QDir(attFolderPath).removeRecursively();
+
+    QString rootCanonical = QDir(dataRootPath()).canonicalPath();
+    QString folderCanonical = QDir(attFolderPath).canonicalPath();
+
+    if (!rootCanonical.isEmpty() && !folderCanonical.isEmpty() &&
+        folderCanonical.startsWith(rootCanonical) && folderCanonical != rootCanonical) {
+        QDir(attFolderPath).removeRecursively();
+    }
 }
 
 OrphanedFileReport WorkspaceRepository::scanForOrphanedFiles() const {
@@ -1051,8 +1114,14 @@ void WorkspaceRepository::deleteOrphanedFile(const QString &filePath) {
     QFile::remove(filePath);
 
     QDir parentDir = QFileInfo(filePath).dir();
-    if (parentDir.entryList(QDir::Files).isEmpty()) {
-        parentDir.removeRecursively();
+    QString rootCanonical = QDir(dataRootPath()).canonicalPath();
+    QString parentCanonical = parentDir.canonicalPath();
+
+    if (!rootCanonical.isEmpty() && !parentCanonical.isEmpty() &&
+        parentCanonical.startsWith(rootCanonical) && parentCanonical != rootCanonical) {
+        if (parentDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot).isEmpty()) {
+            parentDir.removeRecursively();
+        }
     }
 }
 
@@ -1066,8 +1135,18 @@ void WorkspaceRepository::deleteAllOrphanedFiles() {
 }
 
 void WorkspaceRepository::cleanUpOrphanedDataForWorkspace(const QUuid &workspaceId) {
+    if (workspaceId.isNull()) {
+        return;
+    }
+
+    QString rootCanonical = QDir(dataRootPath()).canonicalPath();
     QDir workspaceDir(QDir(dataRootPath()).filePath(uuidKey(workspaceId)));
-    workspaceDir.removeRecursively();
+    QString wsCanonical = workspaceDir.canonicalPath();
+
+    if (!rootCanonical.isEmpty() && !wsCanonical.isEmpty() &&
+        wsCanonical.startsWith(rootCanonical) && wsCanonical != rootCanonical) {
+        workspaceDir.removeRecursively();
+    }
 }
 
 

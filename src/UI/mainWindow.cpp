@@ -23,8 +23,6 @@
 #include "Data/workspace/WorkspaceSwitchDialog.h"
 #include "Data/Project/ProjectCreateDialog.h"
 
-#include "UI/components/SIde_Bar/componets/WorkspaceContextSection.h"
-
 #ifdef _WIN32
 #include <windows.h>
 #include <windowsx.h>

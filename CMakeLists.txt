@@ -24,7 +24,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "Force static libraries for WASM" FORCE)
 FetchContent_Declare(
         md4c
         GIT_REPOSITORY https://github.com/mity/md4c.git
-        GIT_TAG        release-0.5.2  # Changed from v0.5.2
+        GIT_TAG        729e6b8b320caa96328968ab27d7db2235e4fb47  # release-0.5.2
 )
 
 FetchContent_MakeAvailable(md4c)
@@ -67,10 +67,7 @@ set (SOURCE_FILES
         src/UI/componets/Top_Menubar/NavigationBar.cpp
         src/UI/componets/Top_Menubar/MenuButtonBar.cpp
         src/UI/componets/Side_Bar/sideBar.cpp
-        #src/UI/componets/Side_Bar/Components/CoreNavigationSection.cpp
-        src/UI/componets/Side_Bar/Components/WorkspaceContextSection.cpp
-        src/UI/componets/Side_Bar/Components/ProjectsSection.cpp
-        src/UI/componets/Side_Bar/Components/FiltersSection.cpp
+        src/Data/attachments/AttachmentValidator.cpp
         src/md4c/md4c.cpp
         src/UI/componets/Content_Windows/MainContentView.cpp
         src/helpers/AppStateController.cpp
@@ -108,12 +105,6 @@ set (HEADER_FILES
         include/MD4C/mdAPI.h
         include/UI/components/Top_Menubar/MenuButtonBar.h
         include/UI/components/SIde_Bar/sideBar.h
-        #include/UI/components/SIde_Bar/componets/FooterSection.h
-        include/UI/components/SIde_Bar/componets/FiltersSection.h
-        include/UI/components/SIde_Bar/componets/ProjectsSection.h
-        #include/UI/components/SIde_Bar/componets/CoreNavigationSection.h
-        include/UI/components/SIde_Bar/componets/WorkspaceContextSection.h
-        include/UI/components/SIde_Bar/componets/BaseNavTree.h
         include/helpers/IconHelper.h
         include/helpers/AppStateController.h
         include/UI/components/Content_Windows/WorkspaceView.h

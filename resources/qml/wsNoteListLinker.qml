@@ -3,9 +3,10 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import "wsNotePage" as WsNotePage
 
-Item {
+Rectangle {
     id: root
     anchors.fill: parent
+    color: "#0A001C"
 
     readonly property color bgDark: "#13141B"
     readonly property color surfaceDark: "#1C1E28"
@@ -31,51 +32,9 @@ Item {
         // =========================================================
         // 2. FILTER PILLS ROW
         // =========================================================
-        RowLayout {
+        WsNotePage.FilterPills {
             Layout.fillWidth: true
-            spacing: 8
-
-            Repeater {
-                model: [
-                    { id: "all", label: "All Notes" },
-                    { id: "pinned", label: "📌 Pinned" },
-                    { id: "recent", label: "Recent" },
-                    { id: "archived", label: "Archived" }
-                ]
-
-                delegate: Rectangle {
-                    property bool isSelected: typeof noteListPage !== "undefined" && noteListPage.activeFilter === modelData.id
-                    height: 28
-                    width: filterLabel.implicitWidth + 20
-                    radius: 14
-                    color: isSelected ? "#2D3044" : (filterMouse.containsMouse ? root.surfaceHover : root.surfaceDark)
-                    border.color: isSelected ? Qt.rgba(1, 1, 1, 0.2) : root.borderDark
-                    border.width: 1
-
-                    Text {
-                        id: filterLabel
-                        anchors.centerIn: parent
-                        text: modelData.label
-                        color: isSelected ? "#FFFFFF" : root.textMuted
-                        font.pixelSize: 11
-                        font.weight: isSelected ? Font.DemiBold : Font.Normal
-                    }
-
-                    MouseArea {
-                        id: filterMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: {
-                            if (typeof noteListPage !== "undefined") {
-                                noteListPage.activeFilter = modelData.id
-                            }
-                        }
-                    }
-                }
-            }
-
-            Item { Layout.fillWidth: true }
+            Layout.bottomMargin: 10
         }
 
         // =========================================================

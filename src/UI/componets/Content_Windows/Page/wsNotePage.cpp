@@ -6,6 +6,8 @@
 #include <QVBoxLayout>
 #include <QQmlContext>
 #include <QUuid>
+#include <QDesktopServices>
+#include <QUrl>
 
 wsNotePage::wsNotePage(const Workspace& ws, WorkspaceRepository* repo, QWidget* parent)
     : IWorkspaceView(ws, parent), m_workspace(ws), m_activeProject(), m_repo(repo)
@@ -187,14 +189,19 @@ QString wsNotePage::renderMarkdownToHtml(const QString& markdown)
 
 void wsNotePage::onLinkClicked(const QString& link)
 {
-    // 1. Standard Web Links
-    if (link.startsWith("http://") || link.startsWith("https://")) {
-        QDesktopServices::openUrl(QUrl(link));
+    QUrl parsedUrl(link);
+    QString scheme = parsedUrl.scheme().toLower();
+
+    // 1. Standard Web & Mail Links (Whitelisted safe external schemes)
+    if (scheme == "http" || scheme == "https" || scheme == "mailto") {
+        QDesktopServices::openUrl(parsedUrl);
         return;
     }
-    // 2. Local File System Paths
-    else if (link.startsWith("file://") || link.startsWith("/")) {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(link));
+
+    // 2. Reject arbitrary file URLs and local system executable paths for safety
+    if (scheme == "file" || link.startsWith("/") || link.startsWith("\\") ||
+        (link.length() >= 2 && link[1] == ':' && link[0].isLetter())) {
+        qWarning() << "Blocked unsafe local file or executable link:" << link;
         return;
     }
 
@@ -205,7 +212,7 @@ void wsNotePage::onLinkClicked(const QString& link)
     QString cleanLink = QUrl::fromPercentEncoding(link.toUtf8());
 
     // Clean up the "note://" prefix if the parser added it
-    if (cleanLink.startsWith("note://")) {
+    if (cleanLink.startsWith("note://", Qt::CaseInsensitive)) {
         cleanLink = cleanLink.mid(7);
     }
 

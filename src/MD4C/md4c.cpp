@@ -43,8 +43,8 @@ QString mdAPI::renderHtml(const QString& markdown) {
     QByteArray utf8Data = markdown.toUtf8();
     QByteArray htmlOutput;
 
-    // Enable advanced features: Tables, Task Lists, Strikethrough, and WikiLinks
-    unsigned parser_flags = MD_FLAG_TABLES | MD_FLAG_TASKLISTS | MD_FLAG_STRIKETHROUGH | MD_FLAG_WIKILINKS;
+    // Enable advanced features: Tables, Task Lists, Strikethrough, WikiLinks, and disable raw HTML
+    unsigned parser_flags = MD_FLAG_TABLES | MD_FLAG_TASKLISTS | MD_FLAG_STRIKETHROUGH | MD_FLAG_WIKILINKS | MD_FLAG_NOHTML;
 
     // Run the HTML converter
     md_html(utf8Data.constData(), utf8Data.size(), process_html_output, &htmlOutput, parser_flags, 0);

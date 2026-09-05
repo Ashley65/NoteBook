@@ -116,12 +116,13 @@ private:
     void loadNotes();
     void saveAttachments();
     void loadAttachments();
+    void initializeSchema();
     void ensureProjectStructure();
     [[nodiscard]] QUuid defaultProjectForWorkspace(const QUuid& workspaceId) const;
 
     static QString uuidKey (const QUuid& id) { return id.toString(QUuid::WithoutBraces);}
 
-    [[nodiscard]] QString dataRootPath() const;
+    [[nodiscard]] static QString dataRootPath();
     [[nodiscard]] QString settingsFilePath() const;
 
     [[nodiscard]] QString projectPath(const QUuid& workspaceId, const QUuid& projectId) const;
