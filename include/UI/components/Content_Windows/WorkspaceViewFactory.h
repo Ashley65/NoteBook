@@ -13,6 +13,7 @@
 #include "page/wsNotePage.h"
 #include "page/wsTaskBoardPage.h"
 #include "Page/wsNoteListPage.h"
+#include "page/wsProjectPage.h"
 
 class WorkspaceViewFactory
 {
@@ -27,11 +28,18 @@ public:
             return new wsNotePage(ws, repo, parent);
         } else if (type == "notelist") {
             return new wsNoteListPage(ws, repo, parent);
+        } else if (type == "project") {
+            return new wsProjectPage(ws, repo, parent);
         } else if (type == "taskboard" || type == "board" || type == "tasks" || type == "kanban") {
             return new wsTaskBoardPage(ws, repo, parent);
         } else {
             return new wsHomePage(ws, repo, parent);
         }
+    }
+
+    static IWorkspaceView* createProjectView(const Workspace& ws, const Project& project, WorkspaceRepository* repo, QWidget* parent)
+    {
+        return new wsProjectPage(ws, project, repo, parent);
     }
 };
 

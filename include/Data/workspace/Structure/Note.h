@@ -19,8 +19,8 @@ struct Note
     QString content;       // Rich text (Markdown)
     QString preview;       // First few lines (cached)
 
-    bool isPinned;
-    bool isArchived;
+    bool isPinned = false;
+    bool isArchived = false;
 
     QDateTime createdAt;
     QDateTime updatedAt;

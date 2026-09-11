@@ -43,9 +43,8 @@ struct Task
 
     QString title;
     QString description;
-    TaskStatus status;
-
-    TaskPriority priority;
+    TaskStatus status = TaskStatus::Pending;
+    TaskPriority priority = TaskPriority::Medium;
     QDateTime createdAt;
     QDateTime dueDate;
     QDateTime completedAt;

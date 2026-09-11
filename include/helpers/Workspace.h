@@ -23,12 +23,12 @@ struct Workspace
     QColor color;
 
     // State
-    bool protectedMode;
-    bool isArchived;
-    bool isPinned;
+    bool protectedMode = false;
+    bool isArchived = false;
+    bool isPinned = false;
 
     // Ordering
-    int order;
+    int order = 0;
 
     // Timestamps,
     QDateTime createdAt;
@@ -36,8 +36,8 @@ struct Workspace
     QDateTime lastOpenedAt;
 
     // Cached counts for performance
-    int taskCount;              // cached
-    int noteCount;              // cached
+    int taskCount = 0;              // cached
+    int noteCount = 0;              // cached
 };
 
 // Predefined workspace types for categorisation and UI purposes

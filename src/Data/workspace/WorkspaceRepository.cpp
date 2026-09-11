@@ -1,4 +1,5 @@
 #include "Data/workspace/WorkspaceRepository.h"
+#include "Data/Database/DatabaseManager.h"
 #include <QUuid>
 #include <QSettings>
 #include <QStandardPaths>
@@ -14,8 +15,14 @@
 
 WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
 {
-    // LINK: Initialize persistence schema and load existing workspaces and tasks
-    initializeSchema();
+    m_dbManager = std::make_unique<DatabaseManager>("taskhelper_main_repo");
+    const QString dbPath = QDir(dataRootPath()).filePath("taskhelper.db");
+    if (!m_dbManager->open(dbPath)) {
+        qCritical() << "Failed to open SQLite database:" << m_dbManager->lastError();
+    }
+
+    migrateFromLegacySettingsIfNecessary();
+
     loadWorkspaces();
     loadProjects();
     loadTasks();
@@ -23,6 +30,8 @@ WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
     loadAttachments();
     ensureProjectStructure();
 }
+
+WorkspaceRepository::~WorkspaceRepository() = default;
 
 
 
@@ -72,13 +81,9 @@ void WorkspaceRepository::updateWorkspace(const Workspace& ws) {
 
 void WorkspaceRepository::deleteWorkspace(const QUuid& id)
 {
-
     for (int i = 0; i < workspaces_.size(); ++i) {
         if (workspaces_[i].id == id) {
             workspaces_.removeAt(i);
-
-            // Persist changes immediately
-            saveWorkspaces();
 
             // Also remove all tasks associated with this workspace
             for (int j = tasks_.size() - 1; j >= 0; --j) {
@@ -86,14 +91,12 @@ void WorkspaceRepository::deleteWorkspace(const QUuid& id)
                     tasks_.removeAt(j);
                 }
             }
-            saveTasks();
 
             for (int j = projects_.size() - 1; j >= 0; --j) {
                 if (projects_[j].workspaceId == id) {
                     projects_.removeAt(j);
                 }
             }
-            saveProjects();
 
             // Also remove all notes and their attachments associated with this workspace
             for (int j = notes_.size() - 1; j >= 0; --j) {
@@ -104,10 +107,20 @@ void WorkspaceRepository::deleteWorkspace(const QUuid& id)
             // attachments are handled by deleteNote or deleted separately if not linked to a note
             for (int j = attachments_.size() - 1; j >= 0; --j) {
                 if (attachments_[j].workspaceId == id) {
-                    attachments_.removeAt(j);
+                    deleteAttachment(attachments_[j].id);
                 }
             }
+
+            if (m_dbManager && m_dbManager->isOpen()) {
+                m_dbManager->deleteWorkspace(id);
+            }
+
+            saveWorkspaces();
+            saveTasks();
+            saveProjects();
+            saveNotes();
             saveAttachments();
+
             cleanUpOrphanedDataForWorkspace(id);
             break;
         }
@@ -170,7 +183,7 @@ void WorkspaceRepository::deleteProject(const QUuid& id) {
 
     for (int i = tasks_.size() - 1; i >= 0; --i) {
         if (tasks_[i].projectId == id) {
-            tasks_.removeAt(i);
+            deleteTask(tasks_[i].id);
         }
     }
 
@@ -182,8 +195,12 @@ void WorkspaceRepository::deleteProject(const QUuid& id) {
 
     for (int i = attachments_.size() - 1; i >= 0; --i) {
         if (attachments_[i].projectId == id) {
-            attachments_.removeAt(i);
+            deleteAttachment(attachments_[i].id);
         }
+    }
+
+    if (m_dbManager && m_dbManager->isOpen()) {
+        m_dbManager->deleteProject(id);
     }
 
     saveProjects();
@@ -285,6 +302,10 @@ void WorkspaceRepository::deleteNote(const QUuid& id) {
                     }
             }
 
+            if (m_dbManager && m_dbManager->isOpen()) {
+                m_dbManager->deleteNote(id);
+            }
+
             // Persist attachment and note changes
             saveAttachments();
             saveNotes();
@@ -368,6 +389,9 @@ void WorkspaceRepository::deleteAttachment(const QUuid& id) {
         if (attachments_[i].id == id) {
             const FileAttachment deletingAtt = attachments_[i];
             attachments_.removeAt(i);
+            if (m_dbManager && m_dbManager->isOpen()) {
+                m_dbManager->deleteAttachment(id);
+            }
             saveAttachments();
 
             // LINK: Remove attachment file from disk
@@ -460,6 +484,10 @@ void WorkspaceRepository::deleteTask(const QUuid& id) {
         if (tasks_[i].id == id) {
             tasks_.removeAt(i);
 
+            if (m_dbManager && m_dbManager->isOpen()) {
+                m_dbManager->deleteTask(id);
+            }
+
             // LINK: Persist changes immediately
             saveTasks();
 
@@ -469,47 +497,36 @@ void WorkspaceRepository::deleteTask(const QUuid& id) {
     }
 }
 
-void WorkspaceRepository::saveWorkspaces()
+void WorkspaceRepository::migrateFromLegacySettingsIfNecessary()
 {
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    s.beginWriteArray("workspaces");
-
-    for (int i = 0; i < workspaces_.size(); ++i) {
-        s.setArrayIndex(i);
-        s.setValue("id", workspaces_[i].id);
-        s.setValue("name", workspaces_[i].name);
-        s.setValue("type", workspaces_[i].type);
-        s.setValue("description", workspaces_[i].description);
-        s.setValue("icon", workspaces_[i].icon);
-        s.setValue("color", workspaces_[i].color.name());
-        s.setValue("protectedMode", workspaces_[i].protectedMode);
-        s.setValue("isArchived", workspaces_[i].isArchived);
-        s.setValue("isPinned", workspaces_[i].isPinned);
-        s.setValue("order", workspaces_[i].order);
-        s.setValue("createdAt", workspaces_[i].createdAt.toString(Qt::ISODate));
-        s.setValue("updatedAt", workspaces_[i].updatedAt.toString(Qt::ISODate));
-        s.setValue("lastOpenedAt", workspaces_[i].lastOpenedAt.toString(Qt::ISODate));
-        s.setValue("taskCount", workspaces_[i].taskCount);
-        s.setValue("noteCount", workspaces_[i].noteCount);
+    if (!m_dbManager || !m_dbManager->isOpen()) {
+        return;
     }
 
-    s.sync(); // Ensure data is written to disk immediately
-    s.endArray();
+    if (!m_dbManager->getAllWorkspaces(true).isEmpty()) {
+        return;
+    }
 
-}
+    const QString iniPath = settingsFilePath();
+    if (!QFile::exists(iniPath)) {
+        return;
+    }
 
-void WorkspaceRepository::loadWorkspaces()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    int count = s.beginReadArray("workspaces");
+    qInfo() << "Legacy data.ini detected and database is empty. Starting migration to SQLite...";
 
-    // clear existing list to prevent duplicates
-    workspaces_.clear();
+    QSettings s(iniPath, QSettings::IniFormat);
 
-    for (int i = 0; i < count; ++i) {
+    m_dbManager->beginTransaction();
+
+    // 1. Workspaces
+    int wsCount = s.beginReadArray("workspaces");
+    for (int i = 0; i < wsCount; ++i) {
         s.setArrayIndex(i);
         Workspace ws;
-        ws.id = QUuid::fromString(s.value("id").toString());
+        QUuid id = s.value("id").toUuid();
+        if (id.isNull()) id = QUuid::fromString(s.value("id").toString());
+        if (id.isNull()) id = QUuid::createUuid();
+        ws.id = id;
         ws.name = s.value("name").toString();
         ws.type = s.value("type", "custom").toString();
         ws.description = s.value("description").toString();
@@ -522,109 +539,40 @@ void WorkspaceRepository::loadWorkspaces()
         ws.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
         ws.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
         ws.lastOpenedAt = QDateTime::fromString(s.value("lastOpenedAt").toString(), Qt::ISODate);
-        ws.taskCount = s.value("taskCount", 0).toInt();
-        ws.noteCount = s.value("noteCount", 0).toInt();
-        workspaces_.append(ws);
+        ws.taskCount = std::max(0, s.value("taskCount", 0).toInt());
+        ws.noteCount = std::max(0, s.value("noteCount", 0).toInt());
+        m_dbManager->addWorkspace(ws);
     }
-
-
     s.endArray();
-    s.sync(); // Ensure data is written to disk immediately
-}
 
-void WorkspaceRepository::saveProjects()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    s.beginWriteArray("projects");
-
-    for (int i = 0; i < projects_.size(); ++i) {
+    // 2. Projects
+    int projCount = s.beginReadArray("projects");
+    for (int i = 0; i < projCount; ++i) {
         s.setArrayIndex(i);
-        s.setValue("id", projects_[i].id.toString(QUuid::WithoutBraces));
-        s.setValue("workspaceId", projects_[i].workspaceId.toString(QUuid::WithoutBraces));
-        s.setValue("name", projects_[i].name);
-        s.setValue("description", projects_[i].description);
-        s.setValue("isArchived", projects_[i].isArchived);
-        s.setValue("createdAt", projects_[i].createdAt.toString(Qt::ISODate));
-        s.setValue("updatedAt", projects_[i].updatedAt.toString(Qt::ISODate));
+        Project proj;
+        QUuid id = s.value("id").toUuid();
+        if (id.isNull()) id = QUuid::fromString(s.value("id").toString());
+        if (id.isNull()) id = QUuid::createUuid();
+        proj.id = id;
+        proj.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
+        proj.name = s.value("name").toString();
+        proj.description = s.value("description").toString();
+        proj.isArchived = s.value("isArchived", false).toBool();
+        proj.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
+        proj.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
+        m_dbManager->addProject(proj);
     }
-
     s.endArray();
-    s.sync();
-}
 
-void WorkspaceRepository::loadProjects()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    int count = s.beginReadArray("projects");
-
-    projects_.clear();
-
-    for (int i = 0; i < count; ++i) {
-        s.setArrayIndex(i);
-        Project project;
-        project.id = QUuid::fromString(s.value("id").toString());
-        project.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
-        project.name = s.value("name").toString();
-        project.description = s.value("description").toString();
-        project.isArchived = s.value("isArchived", false).toBool();
-        project.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
-        project.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
-        projects_.append(project);
-    }
-
-    s.endArray();
-}
-
-void WorkspaceRepository::saveTasks()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    s.beginWriteArray("tasks");
-
-    for (int i = 0; i < tasks_.size(); ++i) {
-        s.setArrayIndex(i);
-        s.setValue("id", tasks_[i].id);
-        s.setValue("workspaceId", tasks_[i].workspaceId);
-        s.setValue("projectId", tasks_[i].projectId);
-        s.setValue("title", tasks_[i].title);
-        s.setValue("description", tasks_[i].description);
-        s.setValue("status", static_cast<int>(tasks_[i].status));
-        s.setValue("priority", static_cast<int>(tasks_[i].priority));
-        s.setValue("createdAt", tasks_[i].createdAt.toString(Qt::ISODate));
-        s.setValue("dueDate", tasks_[i].dueDate.toString(Qt::ISODate));
-        s.setValue("completedAt", tasks_[i].completedAt.toString(Qt::ISODate));
-
-        if (!tasks_[i].subtasks.isEmpty()) {
-            QJsonArray stArr;
-            for (const auto& st : tasks_[i].subtasks) {
-                QJsonObject stObj;
-                stObj["id"] = st.id.toString(QUuid::WithoutBraces);
-                stObj["taskId"] = st.taskId.toString(QUuid::WithoutBraces);
-                stObj["title"] = st.title;
-                stObj["isCompleted"] = st.isCompleted;
-                stArr.append(stObj);
-            }
-            s.setValue("subtasks", QString::fromUtf8(QJsonDocument(stArr).toJson(QJsonDocument::Compact)));
-        } else {
-            s.remove("subtasks");
-        }
-    }
-
-    s.endArray();
-    s.sync(); // Ensure data is written to disk immediately
-}
-
-void WorkspaceRepository::loadTasks()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    int count = s.beginReadArray("tasks");
-
-    // clear existing list to prevent duplicates
-    tasks_.clear();
-
-    for (int i = 0; i < count; ++i) {
+    // 3. Tasks
+    int taskCount = s.beginReadArray("tasks");
+    for (int i = 0; i < taskCount; ++i) {
         s.setArrayIndex(i);
         Task task;
-        task.id = QUuid::fromString(s.value("id").toString());
+        QUuid id = s.value("id").toUuid();
+        if (id.isNull()) id = QUuid::fromString(s.value("id").toString());
+        if (id.isNull()) id = QUuid::createUuid();
+        task.id = id;
         task.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
         task.projectId = QUuid::fromString(s.value("projectId").toString());
         task.title = s.value("title").toString();
@@ -642,54 +590,26 @@ void WorkspaceRepository::loadTasks()
                 const QJsonObject stObj = val.toObject();
                 SubTask st;
                 st.id = QUuid::fromString(stObj["id"].toString());
-                st.taskId = QUuid::fromString(stObj["taskId"].toString());
+                if (st.id.isNull()) st.id = QUuid::createUuid();
+                st.taskId = task.id;
                 st.title = stObj["title"].toString();
                 st.isCompleted = stObj["isCompleted"].toBool();
                 task.subtasks.append(st);
             }
         }
-
-        tasks_.append(task);
+        m_dbManager->addTask(task);
     }
-
     s.endArray();
-    s.sync();
-}
 
-void WorkspaceRepository::saveNotes()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    s.remove("notes");
-    s.beginWriteArray("notes");
-
-    for (int i = 0; i < notes_.size(); ++i) {
-        s.setArrayIndex(i);
-        s.setValue("id", notes_[i].id.toString(QUuid::WithoutBraces));
-        s.setValue("workspaceId", notes_[i].workspaceId.toString(QUuid::WithoutBraces));
-        s.setValue("projectId", notes_[i].projectId.toString(QUuid::WithoutBraces));
-        s.setValue("title", notes_[i].title);
-        s.setValue("preview", notes_[i].preview);
-        s.setValue("isPinned", notes_[i].isPinned);
-        s.setValue("isArchived", notes_[i].isArchived);
-        s.setValue("createdAt", notes_[i].createdAt.toString(Qt::ISODate));
-        s.setValue("updatedAt", notes_[i].updatedAt.toString(Qt::ISODate));
-    }
-
-    s.endArray();
-    s.sync();
-}
-
-void WorkspaceRepository::loadNotes()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    int count = s.beginReadArray("notes");
-
-    notes_.clear();
-
-    for (int i = 0; i < count; ++i) {
+    // 4. Notes
+    int noteCount = s.beginReadArray("notes");
+    for (int i = 0; i < noteCount; ++i) {
         s.setArrayIndex(i);
         Note note;
-        note.id = QUuid::fromString(s.value("id").toString());
+        QUuid id = s.value("id").toUuid();
+        if (id.isNull()) id = QUuid::fromString(s.value("id").toString());
+        if (id.isNull()) id = QUuid::createUuid();
+        note.id = id;
         note.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
         note.projectId = QUuid::fromString(s.value("projectId").toString());
         note.title = s.value("title").toString();
@@ -706,79 +626,176 @@ void WorkspaceRepository::loadNotes()
         if (note.preview.isEmpty()) {
             note.preview = note.content.left(160);
         }
-        notes_.append(note);
+        m_dbManager->addNote(note);
     }
-
     s.endArray();
-    s.sync();
-}
 
-void WorkspaceRepository::saveAttachments()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    s.beginWriteArray("attachments");
-
-    for (int i = 0; i < attachments_.size(); ++i) {
-        s.setArrayIndex(i);
-        s.setValue("id", attachments_[i].id.toString(QUuid::WithoutBraces));
-        s.setValue("workspaceId", attachments_[i].workspaceId.toString(QUuid::WithoutBraces));
-        s.setValue("projectId", attachments_[i].projectId.toString(QUuid::WithoutBraces));
-        s.setValue("linkedEntityType", static_cast<int>(attachments_[i].linkedEntityType));
-        s.setValue("linkedEntityId", attachments_[i].linkedEntityId.toString(QUuid::WithoutBraces));
-        s.setValue("fileName", attachments_[i].fileName);
-        s.setValue("filePath", attachments_[i].relativePath);
-        s.setValue("mimeType", attachments_[i].mimeType);
-        s.setValue("fileSize", attachments_[i].fileSize);
-        s.setValue("createdAt", attachments_[i].createdAt.toString(Qt::ISODate));
-    }
-
-    s.endArray();
-    s.sync();
-}
-
-void WorkspaceRepository::loadAttachments()
-{
-    QSettings s(settingsFilePath(), QSettings::IniFormat);
-    int count = s.beginReadArray("attachments");
-
-    attachments_.clear();
-
-    for (int i = 0; i < count; ++i) {
+    // 5. Attachments
+    int attCount = s.beginReadArray("attachments");
+    for (int i = 0; i < attCount; ++i) {
         s.setArrayIndex(i);
         FileAttachment att;
-        att.id = QUuid::fromString(s.value("id").toString());
+        QUuid id = s.value("id").toUuid();
+        if (id.isNull()) id = QUuid::fromString(s.value("id").toString());
+        if (id.isNull()) id = QUuid::createUuid();
+        att.id = id;
         att.workspaceId = QUuid::fromString(s.value("workspaceId").toString());
         att.projectId = QUuid::fromString(s.value("projectId").toString());
-
-        // linkedEntityType + linkedEntityId (new)
         if (s.contains("linkedEntityType")) {
             att.linkedEntityType = static_cast<AttachmentEntityType>(s.value("linkedEntityType").toInt());
             att.linkedEntityId = QUuid::fromString(s.value("linkedEntityId").toString());
         } else {
-            // Backwards-compatibility: older data used "noteId"
             QString oldNoteId = s.value("noteId").toString();
             if (!oldNoteId.isEmpty()) {
                 att.linkedEntityType = AttachmentEntityType::Note;
                 att.linkedEntityId = QUuid::fromString(oldNoteId);
-            } else {
-                // Default to Workspace-level link (or leave Null)
-                att.linkedEntityType = AttachmentEntityType::Workspace;
-                att.linkedEntityId = QUuid();
             }
         }
-
         att.fileName = s.value("fileName").toString();
         att.relativePath = s.value("filePath").toString();
         att.mimeType = s.value("mimeType").toString();
         att.fileSize = s.value("fileSize").toLongLong();
         att.createdAt = QDateTime::fromString(s.value("createdAt").toString(), Qt::ISODate);
         att.updatedAt = QDateTime::fromString(s.value("updatedAt").toString(), Qt::ISODate);
+        m_dbManager->addAttachment(att);
+    }
+    s.endArray();
 
-        attachments_.append(att);
+    m_dbManager->commitTransaction();
+
+    QFile::rename(iniPath, iniPath + ".bak");
+    qInfo() << "Migration complete. Legacy data.ini backed up to data.ini.bak.";
+}
+
+void WorkspaceRepository::saveWorkspaces()
+{
+    if (!m_dbManager || !m_dbManager->isOpen()) return;
+    m_dbManager->beginTransaction();
+    for (const auto& ws : workspaces_) {
+        if (m_dbManager->getWorkspace(ws.id).has_value()) {
+            m_dbManager->updateWorkspace(ws);
+        } else {
+            m_dbManager->addWorkspace(ws);
+        }
+    }
+    m_dbManager->commitTransaction();
+}
+
+void WorkspaceRepository::loadWorkspaces()
+{
+    if (m_dbManager && m_dbManager->isOpen()) {
+        workspaces_ = m_dbManager->getAllWorkspaces(true);
+    }
+}
+
+void WorkspaceRepository::saveProjects()
+{
+    if (!m_dbManager || !m_dbManager->isOpen()) return;
+    m_dbManager->beginTransaction();
+    for (const auto& proj : projects_) {
+        if (m_dbManager->getProject(proj.id).has_value()) {
+            m_dbManager->updateProject(proj);
+        } else {
+            m_dbManager->addProject(proj);
+        }
+    }
+    m_dbManager->commitTransaction();
+}
+
+void WorkspaceRepository::loadProjects()
+{
+    projects_.clear();
+    if (m_dbManager && m_dbManager->isOpen()) {
+        for (const auto& ws : workspaces_) {
+            projects_.append(m_dbManager->getProjectsByWorkspace(ws.id));
+        }
+    }
+}
+
+void WorkspaceRepository::saveTasks()
+{
+    if (!m_dbManager || !m_dbManager->isOpen()) return;
+    m_dbManager->beginTransaction();
+    for (const auto& task : tasks_) {
+        if (m_dbManager->getTask(task.id).has_value()) {
+            m_dbManager->updateTask(task);
+        } else {
+            m_dbManager->addTask(task);
+        }
+    }
+    m_dbManager->commitTransaction();
+}
+
+void WorkspaceRepository::loadTasks()
+{
+    tasks_.clear();
+    if (m_dbManager && m_dbManager->isOpen()) {
+        for (const auto& ws : workspaces_) {
+            tasks_.append(m_dbManager->getTasksByWorkspace(ws.id));
+        }
+    }
+}
+
+void WorkspaceRepository::saveNotes()
+{
+    if (!m_dbManager || !m_dbManager->isOpen()) return;
+    m_dbManager->beginTransaction();
+    for (const auto& note : notes_) {
+        if (m_dbManager->getNote(note.id).has_value()) {
+            m_dbManager->updateNote(note);
+        } else {
+            m_dbManager->addNote(note);
+        }
+    }
+    m_dbManager->commitTransaction();
+}
+
+void WorkspaceRepository::loadNotes()
+{
+    notes_.clear();
+    if (m_dbManager && m_dbManager->isOpen()) {
+        for (const auto& ws : workspaces_) {
+            notes_.append(m_dbManager->getNotesByWorkspace(ws.id));
+        }
     }
 
-    s.endArray();
-    s.sync();
+    for (auto& note : notes_) {
+        if (note.content.isEmpty()) {
+            note.content = readNoteContentFromFile(note);
+            if (!note.content.isEmpty() && m_dbManager) {
+                m_dbManager->updateNote(note);
+            }
+        } else {
+            saveNoteToFile(note);
+        }
+        if (note.preview.isEmpty()) {
+            note.preview = note.content.left(160);
+        }
+    }
+}
+
+void WorkspaceRepository::saveAttachments()
+{
+    if (!m_dbManager || !m_dbManager->isOpen()) return;
+    m_dbManager->beginTransaction();
+    for (const auto& att : attachments_) {
+        if (m_dbManager->getAttachment(att.id).has_value()) {
+            m_dbManager->updateAttachment(att);
+        } else {
+            m_dbManager->addAttachment(att);
+        }
+    }
+    m_dbManager->commitTransaction();
+}
+
+void WorkspaceRepository::loadAttachments()
+{
+    attachments_.clear();
+    if (m_dbManager && m_dbManager->isOpen()) {
+        for (const auto& ws : workspaces_) {
+            attachments_.append(m_dbManager->getAttachmentsByWorkspace(ws.id));
+        }
+    }
 }
 
 void WorkspaceRepository::ensureProjectStructure()

@@ -6,11 +6,14 @@
 #define TASKHELPER_WORKSPACEREPOSITORY_H
 #pragma once
 #include <QObject>
+#include <memory>
 #include "helpers/Workspace.h"
 #include "Structure/Project.h"
 #include "Structure/Task.h"
 #include "Structure/Note.h"
 #include "Structure/FileAttachment.h"
+
+class DatabaseManager;
 
 struct OrphanedFileInfo {
     QString filePath;
@@ -32,6 +35,7 @@ class WorkspaceRepository : public QObject
 
 public:
     explicit WorkspaceRepository(QObject* parent = nullptr);
+    ~WorkspaceRepository() override;
 
     // Workspace Management
     [[nodiscard]] QList<Workspace> workspaces() const;
@@ -104,6 +108,10 @@ private:
     QList<Task> tasks_;
     QList<Note> notes_;
     QList<FileAttachment> attachments_;
+    std::unique_ptr<DatabaseManager> m_dbManager;
+
+    // Legacy migration
+    void migrateFromLegacySettingsIfNecessary();
 
     // Persistence
     void saveWorkspaces();

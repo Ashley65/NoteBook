@@ -254,6 +254,7 @@ MainWindow::MainWindow(QWidget* parent)
                     m_sideBar->setWorkspaceId(ws.id);
                     m_sideBar->setWorkspaceName(ws.name);
                     m_sideBar->setActiveProjectId(QUuid());
+                    m_sideBar->setActiveCoreItem(nu_CoreNavigationSection::Item::Dashboard);
                 }
             }
         } else if (viewType == "Project") {
@@ -270,6 +271,7 @@ MainWindow::MainWindow(QWidget* parent)
                 m_mainContent->setActiveProject(p);
                 if (m_sideBar) {
                     m_sideBar->setActiveProjectId(p.id);
+                    m_sideBar->setActiveCoreItem(nu_CoreNavigationSection::Item::Projects);
                 }
             }
         } else if (viewType == "Note") {
@@ -289,6 +291,9 @@ MainWindow::MainWindow(QWidget* parent)
                     m_mainContent->loadTaskBoardView(ws, Project{});
                 }
             }
+            if (m_sideBar) {
+                m_sideBar->setActiveCoreItem(nu_CoreNavigationSection::Item::TaskBoard);
+            }
         } else if (viewType == "NoteList") {
             const Project p = m_workspaceRepo->getProjectById(contextId);
             if (!p.id.isNull()) {
@@ -299,6 +304,9 @@ MainWindow::MainWindow(QWidget* parent)
                 if (!ws.id.isNull()) {
                     m_mainContent->loadNoteListView(ws, Project{});
                 }
+            }
+            if (m_sideBar) {
+                m_sideBar->setActiveCoreItem(nu_CoreNavigationSection::Item::Notes);
             }
         }else {
             qWarning() << "Unknown viewType requested:" << viewType;
@@ -739,6 +747,19 @@ void MainWindow::setupSidebarConnections()
             const QUuid newProjectId = m_workspaceRepo->createProject(project);
             if (m_sideBar && !newProjectId.isNull()) {
                 m_sideBar->setActiveProjectId(newProjectId);
+                m_sideBar->setActiveCoreItem(nu_CoreNavigationSection::Item::Projects);
+                m_stateController->setLastProjectForWorkspace(activeWorkspaceId, newProjectId);
+                const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWorkspaceId);
+                static const QStringList palette = {
+                    "#81C784", "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65"
+                };
+                const QString projectColor = palette.at(qAbs(qHash(newProjectId.toString())) % palette.size());
+                if (m_mainContent) {
+                    m_mainContent->setBorderColor(projectColor);
+                }
+                if (m_tabManager) {
+                    m_tabManager->navigateActiveTab(QString("%1 / %2").arg(ws.name, dlg->projectName()), "Project", newProjectId, projectColor);
+                }
             }
         });
         dlg->open();
@@ -768,6 +789,58 @@ void MainWindow::setupSidebarConnections()
             if (!ws.id.isNull()) {
                 m_sideBar->setActiveProjectId(QUuid());
                 m_tabManager->navigateActiveTab(ws.name, "Home", ws.id, "#3B82F6");
+            }
+        } else if (item == nu_CoreNavigationSection::Item::Projects && m_tabManager) {
+            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
+            if (activeWsId.isNull()) {
+                const auto workspaces = m_workspaceRepo->workspaces();
+                if (!workspaces.isEmpty()) {
+                    activeWsId = workspaces.first().id;
+                }
+            }
+            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            if (!ws.id.isNull()) {
+                QUuid activeProjId = m_sideBar ? m_sideBar->activeProjectId() : QUuid();
+                if (activeProjId.isNull()) {
+                    activeProjId = m_stateController->lastProjectForWorkspace(activeWsId);
+                }
+
+                Project proj;
+                if (!activeProjId.isNull()) {
+                    proj = m_workspaceRepo->getProjectById(activeProjId);
+                }
+                if (proj.id.isNull()) {
+                    const auto projs = m_workspaceRepo->getProjectsByWorkspace(ws.id);
+                    for (const auto& p : projs) {
+                        if (!p.isArchived) {
+                            proj = p;
+                            break;
+                        }
+                    }
+                    if (proj.id.isNull() && !projs.isEmpty()) {
+                        proj = projs.first();
+                    }
+                }
+
+                if (!proj.id.isNull()) {
+                    if (m_sideBar) {
+                        m_sideBar->setActiveProjectId(proj.id);
+                    }
+                    m_stateController->setLastProjectForWorkspace(ws.id, proj.id);
+
+                    static const QStringList palette = {
+                        "#81C784", "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65"
+                    };
+                    const QString projectColor = palette.at(qAbs(qHash(proj.id.toString())) % palette.size());
+
+                    if (m_mainContent) {
+                        m_mainContent->setBorderColor(projectColor);
+                    }
+
+                    m_tabManager->navigateActiveTab(QString("%1 / %2").arg(ws.name, proj.name), "Project", proj.id, projectColor);
+                } else {
+                    emit m_sideBar->projectCreateRequested();
+                }
             }
         } else if (item == nu_CoreNavigationSection::Item::TaskBoard && m_tabManager) {
             QUuid activeWsId = m_stateController->context().activeWorkspaceId;
@@ -842,6 +915,7 @@ void MainWindow::setupSidebarConnections()
         if (project.id.isNull()) return;
 
         m_sideBar->setActiveProjectId(projectId);
+        m_sideBar->setActiveCoreItem(nu_CoreNavigationSection::Item::Projects);
         m_stateController->setLastProjectForWorkspace(project.workspaceId, project.id);
 
         const Workspace ws = m_workspaceRepo->getWorkspaceById(project.workspaceId);

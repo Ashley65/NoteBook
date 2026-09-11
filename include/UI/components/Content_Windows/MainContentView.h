@@ -25,6 +25,7 @@ public:
     void setActiveWorkspace(const AppContext& ctx);
     void setActiveProject(const Project& project);
     void loadNoteView(const Note& note);
+    void loadProjectView(const Workspace& ws, const Project& project);
     void loadNoteListView(const Workspace& ws, const Project& project = Project{});
     void loadTaskBoardView(const Workspace& ws, const Project& project = Project{});
     void discardView(const QUuid& contextId);

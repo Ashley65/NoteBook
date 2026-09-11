@@ -18,7 +18,7 @@ struct Project
     QString name;
     QString description;
 
-    bool isArchived;
+    bool isArchived = false;
 
     QDateTime createdAt;
     QDateTime updatedAt;

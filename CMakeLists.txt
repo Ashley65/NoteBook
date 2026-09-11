@@ -57,7 +57,10 @@ find_package(Qt6 COMPONENTS
         QuickControls2
         Core5Compat
         Network
+        Sql
+        Test
         REQUIRED)
+
 
 set (SOURCE_FILES
         main.cpp
@@ -91,7 +94,9 @@ set (SOURCE_FILES
         src/UI/componets/Side_Bar/nu_componets/FooterSection.cpp
         src/UI/componets/Side_Bar/nu_componets/ProjectsSection.cpp
         src/UI/componets/Content_Windows/Page/wsTaskBoardPage.cpp
-        src/UI/componets/Content_Windows/Page/wsNoteListPage.cpp)
+        src/UI/componets/Content_Windows/Page/wsNoteListPage.cpp
+        src/UI/componets/Content_Windows/Page/wsProjectPage.cpp
+        src/Data/Database/DatabaseManager.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -144,12 +149,13 @@ set (HEADER_FILES
         include/UI/components/SIde_Bar/nu_componets/BaseNavTree.h
         include/UI/components/SIde_Bar/nu_componets/CoreNavigationSection.h
         include/UI/components/SIde_Bar/nu_componets/FooterSection.h
-
         include/UI/components/SIde_Bar/SideBarMode.h
         include/UI/components/SIde_Bar/nu_componets/ProjectSection.h
         include/UI/components/Content_Windows/page/wsProjectPage.h
         include/UI/components/Content_Windows/page/wsNoteListPage.h
-        include/UI/components/Content_Windows/page/wsTaskBoardPage.h)
+        include/UI/components/Content_Windows/page/wsTaskBoardPage.h
+        include/Data/Database/DatabaseManager.h
+        include/Data/Database/DataSchema.h)
 
 qt_add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
@@ -169,6 +175,7 @@ target_link_libraries(taskHelper PRIVATE
         Qt6::QuickControls2
         Qt6::Core5Compat
         Qt6::Network
+        Qt6::Sql
         md4c
         md4c-html
 )
@@ -216,3 +223,27 @@ if (WIN32)
         message(WARNING "windeployqt not found! DLLs will not be copied automatically.")
     endif()
 endif ()
+
+# ============================================================================
+# Unit Tests
+# ============================================================================
+enable_testing()
+
+add_executable(databaseManagerTest
+        Test/DatabaseManager_test/DatabaseManager_test.cpp
+        src/Data/Database/DatabaseManager.cpp
+        ${RESOURCE_FILES}
+)
+
+target_include_directories(databaseManagerTest PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(databaseManagerTest PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Sql
+        Qt6::Test
+)
+
+add_test(NAME DatabaseManagerTest COMMAND databaseManagerTest)

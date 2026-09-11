@@ -82,6 +82,13 @@ void SideBar::setActiveProjectId(const QUuid& id)
     emit activeProjectIdChanged();
 }
 
+void SideBar::setActiveCoreItem(nu_CoreNavigationSection::Item item)
+{
+    if (m_coreNavSection) {
+        m_coreNavSection->setActiveItem(item);
+    }
+}
+
 void SideBar::setProjects(const QVariantList& projects)
 {
     if (m_projects == projects) return;

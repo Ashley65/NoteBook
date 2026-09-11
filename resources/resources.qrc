@@ -20,6 +20,12 @@
         <file>qml/wsNoteListLinker.qml</file>
         <file>qml/wsNotePage/HeaderSection.qml</file>
         <file>qml/wsNotePage/FilterPills.qml</file>
+        <file>qml/wsProjectLinker.qml</file>
+        <file>qml/wsProjectPage/ProjectHeader.qml</file>
+        <file>qml/wsProjectPage/ProjectProgressSection.qml</file>
+        <file>qml/wsProjectPage/ProjectTasksColumn.qml</file>
+        <file>qml/wsProjectPage/ProjectNotesFilesColumn.qml</file>
+
         <file>qml/warningBox/NoteDeletion.qml</file>
         <file>qml/components/TabBar.qml</file>
         <file>icons/delete-icon.svg</file>
@@ -54,5 +60,6 @@
         <file>icons/create_workspace.svg</file>
         <file>icons/settings.svg</file>
         <file>icons/chronotasks_logo.svg</file>
+        <file>sql/schema.sql</file>
     </qresource>
 </RCC>

@@ -45,6 +45,7 @@ public:
     QUuid activeProjectId() const { return m_activeProjectId; }
     void setWorkspaceId(const QUuid& id) { if (m_workspaceId == id) return; m_workspaceId = id; emit workspaceIdChanged(); }
     void setActiveProjectId(const QUuid& id);
+    void setActiveCoreItem(nu_CoreNavigationSection::Item item);
     QVariantList projects() const { return m_projects; }
     void setProjects(const QVariantList& projects);
 

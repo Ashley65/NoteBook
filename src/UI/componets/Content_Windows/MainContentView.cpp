@@ -8,6 +8,7 @@
 #include <UI/components/Content_Windows/page/wsNoteListPage.h>
 #include <UI/components/Content_Windows/page/wsTaskBoardPage.h>
 #include <UI/components/Content_Windows/page/wsHomePage.h>
+#include <UI/components/Content_Windows/page/wsProjectPage.h>
 #include <helpers/Workspace.h>
 
 MainContentView::MainContentView(WorkspaceRepository* repo, QWidget* parent) : QStackedWidget(parent), m_repo(repo)
@@ -71,10 +72,14 @@ void MainContentView::setActiveProject(const Project& project)
         const Workspace ws = m_repo->getWorkspaceById(project.workspaceId);
         if (ws.id.isNull()) return;
 
-        IWorkspaceView* newProjectView = WorkspaceViewFactory::createWorkspaceView(ws, m_repo, this);
+        IWorkspaceView* newProjectView = WorkspaceViewFactory::createProjectView(ws, project, m_repo, this);
         if (!newProjectView) return;
 
-        newProjectView->setActiveProject(project);
+        if (wsProjectPage* page = qobject_cast<wsProjectPage*>(newProjectView)) {
+            connect(page, &wsProjectPage::noteOpenRequested, this, [this](const QString& noteId) {
+                emit noteOpenRequested(noteId);
+            });
+        }
 
         views_[key] = newProjectView;
         addWidget(newProjectView);
@@ -109,6 +114,30 @@ void MainContentView::loadNoteView(const Note& note)
         if (wsNotePage* page = qobject_cast<wsNotePage*>(views_[key])) {
             page->loadNote(note.id.toString(QUuid::WithoutBraces));
         }
+    }
+
+    setCurrentWidget(views_[key]);
+}
+
+void MainContentView::loadProjectView(const Workspace& ws, const Project& project)
+{
+    if (!m_repo) return;
+
+    const QString key = "proj_" + project.id.toString(QUuid::WithoutBraces);
+    if (!views_.contains(key)) {
+        IWorkspaceView* projectView = WorkspaceViewFactory::createProjectView(ws, project, m_repo, this);
+        if (!projectView) return;
+
+        if (wsProjectPage* page = qobject_cast<wsProjectPage*>(projectView)) {
+            connect(page, &wsProjectPage::noteOpenRequested, this, [this](const QString& noteId) {
+                emit noteOpenRequested(noteId);
+            });
+        }
+
+        views_[key] = projectView;
+        addWidget(projectView);
+    } else {
+        views_[key]->setActiveProject(project);
     }
 
     setCurrentWidget(views_[key]);
