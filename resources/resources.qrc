@@ -60,6 +60,14 @@
         <file>icons/create_workspace.svg</file>
         <file>icons/settings.svg</file>
         <file>icons/chronotasks_logo.svg</file>
+        <file>icons/format_bold.svg</file>
+        <file>icons/format_italic.svg</file>
+        <file>icons/format_heading.svg</file>
+        <file>icons/format_code.svg</file>
+        <file>icons/format_list_bulleted.svg</file>
+        <file>icons/format_list_checkbox.svg</file>
+        <file>icons/format_table.svg</file>
+        <file>icons/format_quote.svg</file>
         <file>sql/schema.sql</file>
     </qresource>
 </RCC>

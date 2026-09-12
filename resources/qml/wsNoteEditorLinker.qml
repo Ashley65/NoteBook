@@ -8,30 +8,32 @@ Item {
     id: root
     anchors.fill: parent
 
-    property color bgDarker: "#181818"
-    property color bgDark: "#1E1E1E"
-    property color textMain: "#D4D4D4"
-    property color textMuted: "#858585"
-    property color accentBlue: "#569CD6"
-    property color accentPurple: "#C586C0"
-    property color borderDark: "#2D2D2D"
+    property color bgDarker: "#14151F"
+    property color bgDark: "#1B1D2B"
+    property color textMain: "#FFFFFF"
+    property color textMuted: "#94A3B8"
+    property color accentBlue: "#60A5FA"
+    property color accentPurple: "#8B5CF6"
+    property color borderDark: "#2B2D3F"
 
     // UPGRADED: From boolean to string state management
     property string currentViewMode: "split" // "edit", "split", or "preview"
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 1
-        spacing: 2
-
-
-
+        anchors.margins: 0
+        spacing: 0
 
         WsNoteEditor.NoteHeader {
+            id: noteHeader
             Layout.fillWidth: true
-            // Listen for the new string-based signal
             onViewModeSelected: function(mode) {
                 root.currentViewMode = mode
+            }
+            onFormatRequested: function(action) {
+                if (editorPane) {
+                    editorPane.applyFormatting(action);
+                }
             }
         }
 
@@ -40,7 +42,12 @@ Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
             orientation: Qt.Horizontal
-            spacing: 6
+            spacing: 2
+
+            handle: Rectangle {
+                implicitWidth: 3
+                color: SplitHandle.pressed ? "#8B5CF6" : (SplitHandle.hovered ? "#4C1D95" : "#1B1D2B")
+            }
 
             // Editor Area
             WsNoteEditor.EditorArea {
@@ -60,6 +67,7 @@ Item {
         }
 
         WsNoteEditor.NoteFooter {
+            id: noteFooter
             Layout.fillWidth: true
         }
     }

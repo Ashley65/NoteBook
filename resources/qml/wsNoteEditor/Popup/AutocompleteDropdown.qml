@@ -26,10 +26,11 @@ Popup{
     }
 
     background: Rectangle {
-        color: "#252526" // Slightly lighter than background to pop out
-        border.color: root.borderDark
+        color: "#1E2030"
+        border.color: "#3B3E5B"
+        border.width: 1
         radius: 6
-        layer.enabled: true // Drop shadow effect
+        layer.enabled: true
     }
 
     contentItem: ListView {
@@ -44,13 +45,14 @@ Popup{
 
             contentItem: Text {
                 text: model.title
-                color: root.textMain
-                font.pixelSize: 14
+                color: "#F1F5F9"
+                font.pixelSize: 13
+                font.weight: Font.Medium
                 verticalAlignment: Text.AlignVCenter
             }
 
             background: Rectangle {
-                color: parent.hovered ? "#37373D" : "transparent"
+                color: parent.hovered ? "#2A2D43" : "transparent"
                 radius: 4
             }
 

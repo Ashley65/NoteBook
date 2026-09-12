@@ -28,6 +28,11 @@ class wsNotePage : public IWorkspaceView
     Q_PROPERTY(QString currentNoteTitle READ currentNoteTitle NOTIFY currentNoteTitleChanged)
     Q_PROPERTY(QString currentNoteContent READ currentNoteContent NOTIFY currentNoteContentChanged)
     Q_PROPERTY(QString saveStatus READ saveStatus NOTIFY saveStatusChanged)
+    Q_PROPERTY(QString projectName READ projectName NOTIFY projectChanged)
+    Q_PROPERTY(QString projectColor READ projectColor NOTIFY projectChanged)
+    Q_PROPERTY(int wordCount READ wordCount NOTIFY noteStatsChanged)
+    Q_PROPERTY(int characterCount READ characterCount NOTIFY noteStatsChanged)
+    Q_PROPERTY(int readingTimeMinutes READ readingTimeMinutes NOTIFY noteStatsChanged)
 
     Q_PROPERTY(QVariantList linkedMentions READ linkedMentions NOTIFY linkedMentionsChanged)
 
@@ -49,9 +54,17 @@ public:
     Q_INVOKABLE QString renderMarkdownToHtml(const QString& markdown);
     Q_INVOKABLE void onLinkClicked(const QString& link);
     Q_INVOKABLE QVariantList searchNotesByTitle(const QString& query);
+    Q_INVOKABLE QString attachFileToCurrentNote(const QString& localFilePath);
+    Q_INVOKABLE void openAttachmentDialog();
+    Q_INVOKABLE QVariantList searchAttachments(const QString& query);
 
     // Getters for QML Properties
     QString workspaceName() const;
+    QString projectName() const;
+    QString projectColor() const;
+    int wordCount() const { return m_wordCount; }
+    int characterCount() const { return m_characterCount; }
+    int readingTimeMinutes() const { return m_readingTimeMinutes; }
     QVariantList recentNotes() const;
     QString currentNoteId() const;
     QString currentNoteTitle() const;
@@ -62,6 +75,8 @@ public:
 
 signals:
     void workspaceNameChanged();
+    void projectChanged();
+    void noteStatsChanged();
     void recentNotesChanged();
     void currentNoteIdChanged();
     void currentNoteTitleChanged();
@@ -76,7 +91,6 @@ private:
     WorkspaceRepository* m_repo {nullptr};
     NoteManager* m_noteManager {nullptr};
 
-
     QQuickWidget* m_noteQuickView {nullptr};
 
     QVariantList m_recentNotes;
@@ -86,8 +100,13 @@ private:
     QString m_saveStatus = "State: In-Memory Draft (Unsaved)";
     QVariantList m_linkedMentions;
 
+    int m_wordCount = 0;
+    int m_characterCount = 0;
+    int m_readingTimeMinutes = 1;
+
     void setupUi();
     void populateData();
+    void updateStats(const QString& content);
 
 };
 

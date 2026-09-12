@@ -96,6 +96,7 @@ set (SOURCE_FILES
         src/UI/componets/Content_Windows/Page/wsTaskBoardPage.cpp
         src/UI/componets/Content_Windows/Page/wsNoteListPage.cpp
         src/UI/componets/Content_Windows/Page/wsProjectPage.cpp
+        src/helpers/NoteAttachmentRenderer.cpp
         src/Data/Database/DatabaseManager.cpp)
 
 set (RESOURCE_FILES
@@ -155,7 +156,8 @@ set (HEADER_FILES
         include/UI/components/Content_Windows/page/wsNoteListPage.h
         include/UI/components/Content_Windows/page/wsTaskBoardPage.h
         include/Data/Database/DatabaseManager.h
-        include/Data/Database/DataSchema.h)
+        include/Data/Database/DataSchema.h
+        include/helpers/NoteAttachmentRenderer.h)
 
 qt_add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
