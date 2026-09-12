@@ -60,6 +60,7 @@ jobs:
           qt6-svg-dev \
           qt6-declarative-dev \
           qt6-tools-dev \
+          libqt6sql6-sqlite \
           libgl1-mesa-dev
 
     # Windows: Setup Qt
@@ -134,12 +135,17 @@ jobs:
     # Test (if available)
     - name: Test
       working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      run: ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure
-      continue-on-error: true
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          export PATH="${Qt6_DIR}/bin:$PATH"
+        fi
+        ctest --build-config ${{ env.BUILD_TYPE }} --output-on-failure
+      continue-on-error: false
 
     # Upload build artifacts
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: build-${{ matrix.os }}

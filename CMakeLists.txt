@@ -1,6 +1,6 @@
 set(QT_NO_EMSCRIPTEN_VERSION_CHECK ON CACHE BOOL "" FORCE)
 cmake_minimum_required(VERSION 3.16)
-project(taskHelper)
+project(NoteBook)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTOMOC ON)
@@ -55,7 +55,6 @@ find_package(Qt6 COMPONENTS
         QuickWidgets
         QuickLayouts
         QuickControls2
-        Core5Compat
         Network
         Sql
         Test
@@ -71,7 +70,7 @@ set (SOURCE_FILES
         src/UI/componets/Top_Menubar/MenuButtonBar.cpp
         src/UI/componets/Side_Bar/sideBar.cpp
         src/Data/attachments/AttachmentValidator.cpp
-        src/md4c/md4c.cpp
+        src/MD4C/md4c.cpp
         src/UI/componets/Content_Windows/MainContentView.cpp
         src/helpers/AppStateController.cpp
         src/Data/workspace/WorkspaceRepository.cpp
@@ -159,14 +158,15 @@ set (HEADER_FILES
         include/Data/Database/DataSchema.h
         include/helpers/NoteAttachmentRenderer.h)
 
-qt_add_executable(taskHelper ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
+qt_add_executable(NoteBook ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
+add_executable(taskHelper ALIAS NoteBook)
 
-target_include_directories(taskHelper PRIVATE
+target_include_directories(NoteBook PRIVATE
         ${md4c_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(taskHelper PRIVATE
+target_link_libraries(NoteBook PRIVATE
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -175,7 +175,6 @@ target_link_libraries(taskHelper PRIVATE
         Qt6::QuickWidgets
         Qt6::QuickLayouts
         Qt6::QuickControls2
-        Qt6::Core5Compat
         Qt6::Network
         Qt6::Sql
         md4c
@@ -183,24 +182,24 @@ target_link_libraries(taskHelper PRIVATE
 )
 
 if (WIN32 AND NOT EMSCRIPTEN)
-    target_link_libraries(taskHelper PRIVATE Dwmapi)
-    target_compile_definitions(taskHelper PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
+    target_link_libraries(NoteBook PRIVATE Dwmapi)
+    target_compile_definitions(NoteBook PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
 endif()
 
 if (EMSCRIPTEN)
     set(QT_EMSDK_PATH "C:/emsdk" CACHE PATH "" FORCE)
     set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/wasm_multithread")
-    set_target_properties(taskHelper PROPERTIES 
+    set_target_properties(NoteBook PROPERTIES 
         SUFFIX ".js"
         LINK_FLAGS "-sALLOW_MEMORY_GROWTH=1 -pthread"
     )
 endif()
 
 if (APPLE)
-    set_target_properties(taskHelper PROPERTIES
+    set_target_properties(NoteBook PROPERTIES
             MACOSX_BUNDLE TRUE
-            MACOSX_BUNDLE_GUI_IDENTIFIER "com.chronotasks.taskhelper"
-            MACOSX_BUNDLE_BUNDLE_NAME "ChronoTasks"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.notebook.app"
+            MACOSX_BUNDLE_BUNDLE_NAME "NoteBook"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
             MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
     )
@@ -231,21 +230,89 @@ endif ()
 # ============================================================================
 enable_testing()
 
+# 1. DatabaseManager Test
 add_executable(databaseManagerTest
         Test/DatabaseManager_test/DatabaseManager_test.cpp
         src/Data/Database/DatabaseManager.cpp
         ${RESOURCE_FILES}
 )
-
 target_include_directories(databaseManagerTest PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-
 target_link_libraries(databaseManagerTest PRIVATE
         Qt6::Core
         Qt6::Gui
         Qt6::Sql
         Qt6::Test
 )
-
 add_test(NAME DatabaseManagerTest COMMAND databaseManagerTest)
+
+# 2. WorkspaceRepository Test
+add_executable(workspaceRepositoryTest
+        Test/WorkspaceRepository_test/WorkspaceRepository_test.cpp
+        src/Data/workspace/WorkspaceRepository.cpp
+        include/Data/workspace/WorkspaceRepository.h
+        src/Data/Database/DatabaseManager.cpp
+        src/Data/attachments/AttachmentValidator.cpp
+        ${RESOURCE_FILES}
+)
+target_include_directories(workspaceRepositoryTest PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(workspaceRepositoryTest PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Sql
+        Qt6::Test
+)
+add_test(NAME WorkspaceRepositoryTest COMMAND workspaceRepositoryTest)
+
+# 3. TaskManager Test
+add_executable(taskManagerTest
+        Test/TaskManager_test/TaskManager_test.cpp
+        src/Data/workspace/Manager/TaskManager.cpp
+        include/Data/workspace/Manager/TaskManager.h
+        src/Data/workspace/WorkspaceRepository.cpp
+        include/Data/workspace/WorkspaceRepository.h
+        src/Data/Database/DatabaseManager.cpp
+        src/Data/attachments/AttachmentValidator.cpp
+        ${RESOURCE_FILES}
+)
+target_include_directories(taskManagerTest PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(taskManagerTest PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Sql
+        Qt6::Test
+)
+add_test(NAME TaskManagerTest COMMAND taskManagerTest)
+
+# 4. NoteManager Test
+add_executable(noteManagerTest
+        Test/NoteManager_test/NoteManager_test.cpp
+        src/Data/workspace/Manager/NoteManager.cpp
+        include/Data/workspace/Manager/NoteManager.h
+        src/Data/workspace/WorkspaceRepository.cpp
+        include/Data/workspace/WorkspaceRepository.h
+        src/Data/Database/DatabaseManager.cpp
+        src/Data/attachments/AttachmentValidator.cpp
+        ${RESOURCE_FILES}
+)
+target_include_directories(noteManagerTest PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+target_link_libraries(noteManagerTest PRIVATE
+        Qt6::Core
+        Qt6::Gui
+        Qt6::Sql
+        Qt6::Test
+)
+add_test(NAME NoteManagerTest COMMAND noteManagerTest)
+
+if (WIN32)
+    set_property(TEST DatabaseManagerTest WorkspaceRepositoryTest TaskManagerTest NoteManagerTest
+        PROPERTY ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:C:/Qt/6.11.0/msvc2022_64/bin"
+    )
+endif()

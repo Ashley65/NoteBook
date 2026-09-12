@@ -1,0 +1,61 @@
+# Build directories
+build/
+build-*/
+build_test/
+cmake-build-*/
+out/
+
+# IDE and Editor configurations
+.idea/
+.vscode/
+*.user
+*.user.*
+*.suo
+*.userosscache
+*.sln.docstates
+.junie/
+
+# Compiled object and library files
+*.obj
+*.o
+*.lib
+*.a
+*.exp
+*.dll
+*.so
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Debug symbols and databases
+*.pdb
+*.ilk
+*.idb
+*.VC.db
+*.opensdf
+*.sdf
+
+# Qt moc / autogen generated files (if outside build dir)
+mocs_compilation*.cpp
+*_autogen/
+qrc_*.cpp
+ui_*.h
+
+# Python & Node artifacts
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Temporary and local test outputs
+test_out.txt
+*_test.txt
+walkthrough_flow.py
+serve_wasm.py
+
+# OS generated files
+.DS_Store
+Thumbs.db
