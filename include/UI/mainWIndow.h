@@ -41,7 +41,7 @@ public:
 
 
 public slots:
-    static void goBack();
+    void goBack();
     void goForward();
     void refreshPage();
 
@@ -71,6 +71,7 @@ private:
 
     void setupSideBar();
     void setupSidebarConnections();
+    void refreshSidebar();
 
     void updateWindowTheme();
     [[nodiscard]] bool isDarkModeEnabled() const;

@@ -14,6 +14,8 @@
 #include <QStringList>
 #include <QDebug>
 #include <QGridLayout>
+#include <QShortcut>
+#include <QKeySequence>
 #include <UI/mainWIndow.h>
 #include <UI/components/SIde_Bar/sideBar.h>
 
@@ -70,7 +72,7 @@ static void addStyle(HWND hwnd, const LONG_PTR add)
 
 MainWindow::MainWindow(QWidget* parent)
 {
-    setWindowTitle("ChronoTasks");
+    setWindowTitle("Flow");
     resize(1000, 700);
 
     m_workspaceRepo = new WorkspaceRepository(this);
@@ -129,7 +131,7 @@ MainWindow::MainWindow(QWidget* parent)
     // InfoBar
     auto* infoBar = new InfoBar(topBarFrame);
     m_infoBar = infoBar;
-    infoBar->setAppName("ChronoTasks");
+    infoBar->setAppName("Flow");
     infoBar->setCurrentScreenLabel("");
 
     auto* infoContainer = new QFrame(topBarFrame);
@@ -173,9 +175,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_navigationBar = new NavigationBar(topBarFrame);
     m_navigationBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
     m_navigationBar->setMaximumWidth(100);
-    connect(m_navigationBar, &NavigationBar::backClicked, this, &MainWindow::goBack);
-    connect(m_navigationBar, &NavigationBar::forwardClicked, this, &MainWindow::goForward);
-    connect(m_navigationBar, &NavigationBar::refreshClicked, this, &MainWindow::refreshPage);
+    setupNavigationBar();
 
     // Tab Bar
     m_tabBar = new TabBar(m_tabManager, topBarFrame);
@@ -424,21 +424,24 @@ MainWindow::MainWindow(QWidget* parent)
 
 void MainWindow::goBack()
 {
-    // TODO: Implement navigation back action and intergate with history management
-    // This is a placeholder for the actual implementation
-
+    if (m_tabManager && m_tabManager->canGoBack()) {
+        m_tabManager->goBack();
+    }
 }
 
 void MainWindow::goForward()
 {
-    // TODO: Implement navigation forward action and intergate with history management
-    // This is a placeholder for the actual implementation
+    if (m_tabManager && m_tabManager->canGoForward()) {
+        m_tabManager->goForward();
+    }
 }
 
 void MainWindow::refreshPage()
 {
-    // TODO: Implement page refresh action and intergate with content reloading
-    // This is a placeholder for the actual implementation
+    if (m_mainContent) {
+        m_mainContent->refreshCurrentView();
+    }
+    refreshSidebar();
 }
 
 QFrame* MainWindow::createWidget(const QString& title, const QString& color,
@@ -519,8 +522,71 @@ void MainWindow::setupInfoBar()
 
 void MainWindow::setupNavigationBar()
 {
-    // TODO: implemented: setup for NavigationBar
-    // The idea is to allow for the navigation bar to control navigation within the content window
+    if (!m_navigationBar) return;
+
+    connect(m_navigationBar, &NavigationBar::backClicked, this, &MainWindow::goBack);
+    connect(m_navigationBar, &NavigationBar::forwardClicked, this, &MainWindow::goForward);
+    connect(m_navigationBar, &NavigationBar::refreshClicked, this, &MainWindow::refreshPage);
+
+    if (m_tabManager) {
+        m_navigationBar->setBackEnabled(m_tabManager->canGoBack());
+        m_navigationBar->setForwardEnabled(m_tabManager->canGoForward());
+
+        connect(m_tabManager, &TabManager::navigationHistoryChanged, this, [this](bool canGoBack, bool canGoForward) {
+            if (m_navigationBar) {
+                m_navigationBar->setBackEnabled(canGoBack);
+                m_navigationBar->setForwardEnabled(canGoForward);
+            }
+        });
+    }
+
+    // Keyboard shortcuts
+    auto* backShortcut = new QShortcut(QKeySequence::Back, this);
+    connect(backShortcut, &QShortcut::activated, this, &MainWindow::goBack);
+
+    auto* altLeftShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_Left), this);
+    connect(altLeftShortcut, &QShortcut::activated, this, &MainWindow::goBack);
+
+    auto* forwardShortcut = new QShortcut(QKeySequence::Forward, this);
+    connect(forwardShortcut, &QShortcut::activated, this, &MainWindow::goForward);
+
+    auto* altRightShortcut = new QShortcut(QKeySequence(Qt::ALT | Qt::Key_Right), this);
+    connect(altRightShortcut, &QShortcut::activated, this, &MainWindow::goForward);
+
+    auto* refreshShortcut = new QShortcut(QKeySequence::Refresh, this);
+    connect(refreshShortcut, &QShortcut::activated, this, &MainWindow::refreshPage);
+
+    auto* ctrlRShortcut = new QShortcut(QKeySequence(Qt::CTRL | Qt::Key_R), this);
+    connect(ctrlRShortcut, &QShortcut::activated, this, &MainWindow::refreshPage);
+}
+
+void MainWindow::refreshSidebar()
+{
+    if (!m_sideBar || !m_stateController || !m_workspaceRepo) return;
+
+    const QUuid workspaceId = m_stateController->context().activeWorkspaceId;
+    QVariantList projectItems;
+
+    if (!workspaceId.isNull()) {
+        const QList<Project> projects = m_workspaceRepo->getProjectsByWorkspace(workspaceId);
+        static const QStringList palette = {
+            "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65", "#81C784"
+        };
+
+        for (const Project& project : projects) {
+            if (project.isArchived) {
+                continue;
+            }
+
+            QVariantMap item;
+            item.insert("id", project.id.toString(QUuid::WithoutBraces));
+            item.insert("name", project.name);
+            item.insert("colorCode", palette.at(qAbs(qHash(project.id.toString())) % palette.size()));
+            projectItems.append(item);
+        }
+    }
+
+    m_sideBar->setProjects(projectItems);
 }
 
 void MainWindow::updateFloatingToggleButtonVisibility()
@@ -583,29 +649,7 @@ void MainWindow::setupSidebarConnections()
     if (!m_sideBar || !m_stateController || !m_workspaceRepo) return;
 
     const auto refreshSidebarProjects = [this]() {
-        const QUuid workspaceId = m_stateController->context().activeWorkspaceId;
-        QVariantList projectItems;
-
-        if (!workspaceId.isNull()) {
-            const QList<Project> projects = m_workspaceRepo->getProjectsByWorkspace(workspaceId);
-            static const QStringList palette = {
-                "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65", "#81C784"
-            };
-
-            for (const Project& project : projects) {
-                if (project.isArchived) {
-                    continue;
-                }
-
-                QVariantMap item;
-                item.insert("id", project.id.toString(QUuid::WithoutBraces));
-                item.insert("name", project.name);
-                item.insert("colorCode", palette.at(qAbs(qHash(project.id.toString())) % palette.size()));
-                projectItems.append(item);
-            }
-        }
-
-        m_sideBar->setProjects(projectItems);
+        refreshSidebar();
     };
 
     // React to State Changes
@@ -1013,9 +1057,11 @@ void MainWindow::updateWindowTheme()
             ? "QPushButton { padding: 0px; border: none; border-radius: 4px; }"
               "QPushButton:hover { background: #a8c0ff; }"
               "QPushButton:pressed { background-color: rgba(255,255,255,0.32); }"
+              "QPushButton:disabled { background: transparent; }"
             : "QPushButton { padding: 0px; border: none; border-radius: 4px; }"
               "QPushButton:hover { background: #d2e3fc; }"
-              "QPushButton:pressed { background-color: rgba(0,0,0,0.08); }";
+              "QPushButton:pressed { background-color: rgba(0,0,0,0.08); }"
+              "QPushButton:disabled { background: transparent; }";
 
         m_navigationBar->setButtonStyleSheet(btnCss);
         m_navigationBar->updateIcons(darkMode);

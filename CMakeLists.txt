@@ -1,6 +1,6 @@
 set(QT_NO_EMSCRIPTEN_VERSION_CHECK ON CACHE BOOL "" FORCE)
 cmake_minimum_required(VERSION 3.16)
-project(NoteBook)
+project(Flow)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_AUTOMOC ON)
@@ -158,15 +158,27 @@ set (HEADER_FILES
         include/Data/Database/DataSchema.h
         include/helpers/NoteAttachmentRenderer.h)
 
-qt_add_executable(NoteBook ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
-add_executable(taskHelper ALIAS NoteBook)
+qt_add_executable(Flow ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
-target_include_directories(NoteBook PRIVATE
+# Compatibility targets so Ninja / IDEs targeting NoteBook or taskHelper build Flow
+add_custom_target(NoteBook ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:Flow> $<TARGET_FILE_DIR:Flow>/NoteBook$<TARGET_FILE_SUFFIX:Flow>
+    DEPENDS Flow
+    COMMENT "Building Flow and syncing NoteBook binary for compatibility"
+)
+add_custom_target(taskHelper ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:Flow> $<TARGET_FILE_DIR:Flow>/taskHelper$<TARGET_FILE_SUFFIX:Flow>
+    DEPENDS Flow
+    COMMENT "Building Flow and syncing taskHelper binary for compatibility"
+)
+
+
+target_include_directories(Flow PRIVATE
         ${md4c_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-target_link_libraries(NoteBook PRIVATE
+target_link_libraries(Flow PRIVATE
         Qt6::Core
         Qt6::Gui
         Qt6::Widgets
@@ -182,24 +194,24 @@ target_link_libraries(NoteBook PRIVATE
 )
 
 if (WIN32 AND NOT EMSCRIPTEN)
-    target_link_libraries(NoteBook PRIVATE Dwmapi)
-    target_compile_definitions(NoteBook PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
+    target_link_libraries(Flow PRIVATE Dwmapi)
+    target_compile_definitions(Flow PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN)
 endif()
 
 if (EMSCRIPTEN)
     set(QT_EMSDK_PATH "C:/emsdk" CACHE PATH "" FORCE)
     set(CMAKE_PREFIX_PATH "C:/Qt/6.11.0/wasm_multithread")
-    set_target_properties(NoteBook PROPERTIES 
+    set_target_properties(Flow PROPERTIES 
         SUFFIX ".js"
         LINK_FLAGS "-sALLOW_MEMORY_GROWTH=1 -pthread"
     )
 endif()
 
 if (APPLE)
-    set_target_properties(NoteBook PROPERTIES
+    set_target_properties(Flow PROPERTIES
             MACOSX_BUNDLE TRUE
-            MACOSX_BUNDLE_GUI_IDENTIFIER "com.notebook.app"
-            MACOSX_BUNDLE_BUNDLE_NAME "NoteBook"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com.flow.app"
+            MACOSX_BUNDLE_BUNDLE_NAME "Flow"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
             MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
     )
@@ -311,8 +323,25 @@ target_link_libraries(noteManagerTest PRIVATE
 )
 add_test(NAME NoteManagerTest COMMAND noteManagerTest)
 
-if (WIN32)
-    set_property(TEST DatabaseManagerTest WorkspaceRepositoryTest TaskManagerTest NoteManagerTest
-        PROPERTY ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:C:/Qt/6.11.0/msvc2022_64/bin"
-    )
-endif()
+
+
+## 5. TabManager Test
+#add_executable(tabManagerTest
+#        Test/TabManager_test/TabManager_test.cpp
+#        src/Data/workspace/Manager/TabManager.cpp
+#        include/Data/workspace/Manager/TabManager.h
+#)
+#target_include_directories(tabManagerTest PRIVATE
+#        ${CMAKE_CURRENT_SOURCE_DIR}/include
+#)
+#target_link_libraries(tabManagerTest PRIVATE
+#        Qt6::Core
+#        Qt6::Test
+#)
+#add_test(NAME TabManagerTest COMMAND tabManagerTest)
+
+#if (WIN32)
+#    set_property(TEST DatabaseManagerTest WorkspaceRepositoryTest TaskManagerTest NoteManagerTest TabManagerTest
+#        PROPERTY ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:C:/Qt/6.11.0/msvc2022_64/bin"
+#    )
+#endif()

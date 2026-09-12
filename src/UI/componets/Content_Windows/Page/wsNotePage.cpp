@@ -43,6 +43,9 @@ wsNotePage::wsNotePage(const Workspace& ws, WorkspaceRepository* repo, QWidget* 
 void wsNotePage::refresh()
 {
     populateData();
+    if (!m_currentNoteId.isEmpty() && m_currentNoteId != "-1") {
+        loadNote(m_currentNoteId);
+    }
 }
 
 void wsNotePage::updateWorkspace(const Workspace& ws)

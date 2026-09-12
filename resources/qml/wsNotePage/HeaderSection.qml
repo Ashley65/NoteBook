@@ -67,7 +67,7 @@ Item {
                 text: typeof noteListPage !== "undefined" ? "(" + noteListPage.totalNoteCount + ")" : ""
                 color: root.textMuted
                 font.pixelSize: 14
-                Layout.leftMargin: 10
+                Layout.leftMargin: 40
             }
         }
 

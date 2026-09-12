@@ -40,9 +40,9 @@ int TabManager::findTabIndexByContextId(const QUuid& contextId) const
 void TabManager::addTab(const QString& title, const QString& viewType, const QUuid& contextId,
     const QString& projectColour)
 {
-    int existingTabINdex = findTabIndexByContextId(contextId);
+    int existingTabIndex = findTabIndexByContextId(contextId);
 
-    if (existingTabINdex != -1) {
+    if (existingTabIndex != -1) {
         // Tab already exists, just activate it
         setActiveTabId(contextId);
         return;
@@ -57,7 +57,16 @@ void TabManager::addTab(const QString& title, const QString& viewType, const QUu
     }
 
     if (!exists) {
-        m_tabs.append({title, viewType, contextId, projectColour, QDateTime::currentDateTime()});
+        TabData newTab;
+        newTab.title = title;
+        newTab.viewType = viewType;
+        newTab.contextId = contextId;
+        newTab.projectColour = projectColour;
+        newTab.lastAccessed = QDateTime::currentDateTime();
+        newTab.history.append({title, viewType, contextId, projectColour});
+        newTab.historyIndex = 0;
+
+        m_tabs.append(newTab);
         emit tabsChanged();
     }
 
@@ -81,21 +90,104 @@ void TabManager::navigateActiveTab(const QString& title, const QString& viewType
     }
 
     if (activeIndex != -1) {
+        auto& currentTab = m_tabs[activeIndex];
+
+        // Check if navigating to the same state as current history entry
+        bool isSameState = (currentTab.historyIndex >= 0 &&
+                            currentTab.historyIndex < currentTab.history.size() &&
+                            currentTab.history[currentTab.historyIndex].viewType == viewType &&
+                            currentTab.history[currentTab.historyIndex].contextId == contextId);
+
+        if (!isSameState) {
+            // Truncate any forward history
+            while (currentTab.history.size() > currentTab.historyIndex + 1) {
+                currentTab.history.removeLast();
+            }
+            currentTab.history.append({title, viewType, contextId, projectColour});
+            currentTab.historyIndex = currentTab.history.size() - 1;
+        } else {
+            currentTab.history[currentTab.historyIndex].title = title;
+            currentTab.history[currentTab.historyIndex].projectColour = projectColour;
+        }
+
         // Reuse and update the current active tab
-        m_tabs[activeIndex].title = title;
-        m_tabs[activeIndex].viewType = viewType;
-        m_tabs[activeIndex].contextId = contextId;
-        m_tabs[activeIndex].projectColour = projectColour;
-        m_tabs[activeIndex].lastAccessed = QDateTime::currentDateTime();
+        currentTab.title = title;
+        currentTab.viewType = viewType;
+        currentTab.contextId = contextId;
+        currentTab.projectColour = projectColour;
+        currentTab.lastAccessed = QDateTime::currentDateTime();
 
         m_activeTabId = contextId;
         emit tabsChanged();
         emit activeTabIdChanged();
         emit tabOpened(viewType, contextId);
+        emit navigationHistoryChanged(canGoBack(), canGoForward());
         discardOldTabs(5);
     } else {
         // No active tab exists yet, fallback to creating one
         addTab(title, viewType, contextId, projectColour);
+    }
+}
+
+bool TabManager::canGoBack() const
+{
+    const int idx = findTabIndexByContextId(m_activeTabId);
+    if (idx < 0 || idx >= m_tabs.size()) return false;
+    return m_tabs[idx].historyIndex > 0;
+}
+
+bool TabManager::canGoForward() const
+{
+    const int idx = findTabIndexByContextId(m_activeTabId);
+    if (idx < 0 || idx >= m_tabs.size()) return false;
+    return m_tabs[idx].historyIndex + 1 < m_tabs[idx].history.size();
+}
+
+void TabManager::goBack()
+{
+    const int idx = findTabIndexByContextId(m_activeTabId);
+    if (idx < 0 || idx >= m_tabs.size()) return;
+
+    auto& tab = m_tabs[idx];
+    if (tab.historyIndex > 0) {
+        tab.historyIndex--;
+        const auto& entry = tab.history[tab.historyIndex];
+
+        tab.title = entry.title;
+        tab.viewType = entry.viewType;
+        tab.contextId = entry.contextId;
+        tab.projectColour = entry.projectColour;
+        tab.lastAccessed = QDateTime::currentDateTime();
+
+        m_activeTabId = entry.contextId;
+        emit tabsChanged();
+        emit activeTabIdChanged();
+        emit tabOpened(entry.viewType, entry.contextId);
+        emit navigationHistoryChanged(canGoBack(), canGoForward());
+    }
+}
+
+void TabManager::goForward()
+{
+    const int idx = findTabIndexByContextId(m_activeTabId);
+    if (idx < 0 || idx >= m_tabs.size()) return;
+
+    auto& tab = m_tabs[idx];
+    if (tab.historyIndex + 1 < tab.history.size()) {
+        tab.historyIndex++;
+        const auto& entry = tab.history[tab.historyIndex];
+
+        tab.title = entry.title;
+        tab.viewType = entry.viewType;
+        tab.contextId = entry.contextId;
+        tab.projectColour = entry.projectColour;
+        tab.lastAccessed = QDateTime::currentDateTime();
+
+        m_activeTabId = entry.contextId;
+        emit tabsChanged();
+        emit activeTabIdChanged();
+        emit tabOpened(entry.viewType, entry.contextId);
+        emit navigationHistoryChanged(canGoBack(), canGoForward());
     }
 }
 
@@ -110,6 +202,9 @@ void TabManager::updateTabTitle(const QUuid& contextId, const QString& newTitle)
     const int index = findTabIndexByContextId(contextId);
     if (index != -1 && m_tabs[index].title != newTitle) {
         m_tabs[index].title = newTitle;
+        if (m_tabs[index].historyIndex >= 0 && m_tabs[index].historyIndex < m_tabs[index].history.size()) {
+            m_tabs[index].history[m_tabs[index].historyIndex].title = newTitle;
+        }
         emit tabsChanged();
     }
 }
@@ -131,6 +226,8 @@ void TabManager::closeTab(const QUuid& contextId)
                     int nextIndex = qMin(i, m_tabs.size() - 1);
                     setActiveTabId(m_tabs[nextIndex].contextId);
                 }
+            } else {
+                emit navigationHistoryChanged(canGoBack(), canGoForward());
             }
             break;
         }
@@ -155,6 +252,7 @@ void TabManager::setActiveTabId(const QUuid& contextId)
             }
         }
     }
+    emit navigationHistoryChanged(canGoBack(), canGoForward());
     discardOldTabs(5);
 }
 

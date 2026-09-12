@@ -241,3 +241,10 @@ void MainContentView::discardView(const QUuid& contextId)
         }
     }
 }
+
+void MainContentView::refreshCurrentView()
+{
+    if (auto* view = qobject_cast<IWorkspaceView*>(currentWidget())) {
+        view->refresh();
+    }
+}

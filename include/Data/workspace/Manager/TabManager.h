@@ -16,16 +16,30 @@
  */
 
 /**
+ * @struct NavigationEntry
+ * @brief Represents a single navigation state in a tab's history.
+ */
+struct NavigationEntry
+{
+    QString title;          ///< Display title.
+    QString viewType;       ///< View identifier (e.g., "Note", "TaskBoard", "Project", "Home").
+    QUuid contextId;        ///< Target entity UUID.
+    QString projectColour;  ///< Accent color hex string.
+};
+
+/**
  * @struct TabData
  * @brief State descriptor representing an individual workspace or document tab.
  */
 struct TabData
 {
-    QString title;          ///< Display title of the tab.
-    QString viewType;       ///< View identifier (e.g., "Note", "TaskBoard", "Project", "Home").
-    QUuid contextId;        ///< Target entity UUID (note, project, or workspace).
-    QString projectColour;  ///< Hex color string associated with the tab context.
-    QDateTime lastAccessed; ///< Timestamp when the tab was last viewed or focused.
+    QString title;                  ///< Display title of the tab.
+    QString viewType;               ///< View identifier (e.g., "Note", "TaskBoard", "Project", "Home").
+    QUuid contextId;                ///< Target entity UUID (note, project, or workspace).
+    QString projectColour;          ///< Hex color string associated with the tab context.
+    QDateTime lastAccessed;         ///< Timestamp when the tab was last viewed or focused.
+    QList<NavigationEntry> history; ///< Navigation history stack for this tab.
+    int historyIndex = -1;          ///< Current position in the tab's history stack.
 };
 
 /**
@@ -120,6 +134,26 @@ public:
     }
 
     /**
+     * @brief Checks if the currently active tab has backward navigation history.
+     */
+    [[nodiscard]] bool canGoBack() const;
+
+    /**
+     * @brief Checks if the currently active tab has forward navigation history.
+     */
+    [[nodiscard]] bool canGoForward() const;
+
+    /**
+     * @brief Navigates backward in the active tab's history.
+     */
+    Q_INVOKABLE void goBack();
+
+    /**
+     * @brief Navigates forward in the active tab's history.
+     */
+    Q_INVOKABLE void goForward();
+
+    /**
      * @brief Finds the index of a tab by its context ID.
      * @param contextId Target entity UUID.
      * @return 0-based index if found, -1 otherwise.
@@ -127,6 +161,10 @@ public:
     [[nodiscard]] int findTabIndexByContextId(const QUuid& contextId) const;
 
 signals:
+    /**
+     * @brief Emitted when the active tab's back/forward capability changes.
+     */
+    void navigationHistoryChanged(bool canGoBack, bool canGoForward);
     /**
      * @brief Emitted when tabs are added, removed, or modified.
      */

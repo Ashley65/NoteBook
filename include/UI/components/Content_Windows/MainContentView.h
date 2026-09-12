@@ -29,6 +29,7 @@ public:
     void loadNoteListView(const Workspace& ws, const Project& project = Project{});
     void loadTaskBoardView(const Workspace& ws, const Project& project = Project{});
     void discardView(const QUuid& contextId);
+    void refreshCurrentView();
     void setBorderColor(const QString& colorHex);
     QString borderColor() const { return m_borderColor; }
 
