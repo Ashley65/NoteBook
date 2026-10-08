@@ -22,9 +22,11 @@ set "EMSDK=C:/emsdk"
 echo Using Qt WebAssembly path: %QT_WASM_PATH%
 echo Using Qt Host path: %QT_HOST_PATH%
 
-if exist "build-wasm" (
-    echo Cleaning previous build-wasm directory...
-    rmdir /s /q build-wasm
+if "%1"=="clean" (
+    if exist "build-wasm" (
+        echo Cleaning previous build-wasm directory...
+        rmdir /s /q build-wasm
+    )
 )
 
 echo Configuring CMake for Qt WebAssembly...
@@ -33,7 +35,17 @@ call emcmake cmake -B build-wasm -DCMAKE_TOOLCHAIN_FILE="%QT_WASM_PATH%/lib/cmak
 echo Building WebAssembly binary (.wasm / .html)...
 call cmake --build build-wasm --config Release --target Flow
 
+if exist "D:\Projects\web\webpage\flow" (
+    echo Copying generated WebAssembly artifacts to Gate8 flow directory...
+    copy /y build-wasm\Flow.wasm "D:\Projects\web\webpage\flow\"
+    copy /y build-wasm\Flow.js "D:\Projects\web\webpage\flow\"
+    copy /y build-wasm\qtloader.js "D:\Projects\web\webpage\flow\"
+    if exist build-wasm\Flow.html copy /y build-wasm\Flow.html "D:\Projects\web\webpage\flow\index.html"
+    if exist build-wasm\Flow.html copy /y build-wasm\Flow.html "D:\Projects\web\webpage\flow\Flow.html"
+    if exist build-wasm\qtlogo.svg copy /y build-wasm\qtlogo.svg "D:\Projects\web\webpage\flow\"
+)
+
 echo ===================================================
-echo Build Complete! Output generated in build-wasm\taskHelper.html
-echo Run "python -m http.server 8000 --directory build-wasm" to serve in browser.
+echo Build Complete! Output generated in build-wasm\Flow.html
+echo Run "python serve_wasm.py 8000 build-wasm" to test locally with COOP/COEP headers.
 echo ===================================================

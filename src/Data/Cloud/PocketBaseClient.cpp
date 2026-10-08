@@ -378,7 +378,7 @@ void PocketBaseClient::loadSettings()
         m_officialUrl = CLOUD_URL;
     }
     m_customUrl = settings.value("customUrl", LOCAL_URL).toString();
-    if (m_customUrl.isEmpty()) {
+    if (m_customUrl.isEmpty() || m_customUrl.contains("yourdomain.com")) {
         m_customUrl = LOCAL_URL;
     }
     m_authToken = settings.value("authToken").toString();

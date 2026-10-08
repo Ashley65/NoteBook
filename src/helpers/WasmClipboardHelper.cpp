@@ -48,6 +48,25 @@ EMSCRIPTEN_KEEPALIVE const char* flow_wasm_get_clipboard()
 }
 
 } // extern "C"
+
+EM_JS(char*, flow_read_browser_clipboard_sync, (), {
+    if (window.__flow_last_paste_text && window.__flow_last_paste_text.length > 0) {
+        var str = window.__flow_last_paste_text;
+        var len = lengthBytesUTF8(str) + 1;
+        var ptr = _malloc(len);
+        stringToUTF8(str, ptr, len);
+        return ptr;
+    }
+    var input = window.prompt("Paste text here (Ctrl+V / Cmd+V):", "");
+    if (input !== null && input !== undefined && input.length > 0) {
+        window.__flow_last_paste_text = input;
+        var len = lengthBytesUTF8(input) + 1;
+        var ptr = _malloc(len);
+        stringToUTF8(input, ptr, len);
+        return ptr;
+    }
+    return 0;
+});
 #endif
 
 void WasmClipboardHelper::initClipboard()
@@ -65,6 +84,7 @@ void WasmClipboardHelper::initClipboard()
             window.addEventListener('paste', function(e) {
                 var text = (e.clipboardData || window.clipboardData).getData('text');
                 if (text && text.length > 0) {
+                    window.__flow_last_paste_text = text;
                     if (typeof _flow_wasm_on_paste === 'function') {
                         var ptr = stringToNewUTF8(text);
                         _flow_wasm_on_paste(ptr);
@@ -101,12 +121,20 @@ void WasmClipboardHelper::initClipboard()
 QString WasmClipboardHelper::getBrowserClipboardText()
 {
 #ifdef __EMSCRIPTEN__
-    emscripten::val navigator = emscripten::val::global("navigator");
-    if (!navigator.isUndefined() && !navigator["clipboard"].isUndefined()) {
-        // Reads or prompts for browser clipboard
-    }
     if (!s_lastWasmClipboardText.isEmpty()) {
-        return s_lastWasmClipboardText;
+        QString text = s_lastWasmClipboardText;
+        s_lastWasmClipboardText.clear();
+        return text;
+    }
+    char* textPtr = flow_read_browser_clipboard_sync();
+    if (textPtr) {
+        QString res = QString::fromUtf8(textPtr);
+        free(textPtr);
+        s_lastWasmClipboardText = res;
+        if (QGuiApplication::clipboard()) {
+            QGuiApplication::clipboard()->setText(res);
+        }
+        return res;
     }
 #endif
     if (QGuiApplication::clipboard()) {
@@ -124,6 +152,7 @@ void WasmClipboardHelper::setBrowserClipboardText(const QString& text)
     s_lastWasmClipboardText = text;
     EM_ASM({
         var text = UTF8ToString($0);
+        window.__flow_last_paste_text = text;
         if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(text).catch(function(err) {
                 console.warn("[WasmClipboardHelper] writeText warning:", err);

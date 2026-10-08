@@ -18,7 +18,7 @@ CloudSyncDialog::CloudSyncDialog(PocketBaseClient* client,
     , m_syncManager(syncManager)
 {
     setWindowTitle(tr("Cloud Sync & Account"));
-    setFixedSize(480, 520);
+    setFixedSize(480, 560);
 
     initUi();
     setupStyling();
@@ -124,12 +124,36 @@ void CloudSyncDialog::initUi()
     auto* formLayout = new QVBoxLayout(accountGroup);
     formLayout->setSpacing(12);
 
+    auto* emailRowLayout = new QHBoxLayout();
+    emailRowLayout->setSpacing(8);
     m_emailEdit = new QLineEdit(accountGroup);
     m_emailEdit->setPlaceholderText(tr("Email or Username"));
+    auto* pasteEmailBtn = new QPushButton(tr("Paste"), accountGroup);
+    pasteEmailBtn->setFixedWidth(60);
+    connect(pasteEmailBtn, &QPushButton::clicked, this, [this]() {
+        QString text = WasmClipboardHelper::getBrowserClipboardText();
+        if (!text.isEmpty()) {
+            m_emailEdit->setText(text.trimmed());
+        }
+    });
+    emailRowLayout->addWidget(m_emailEdit);
+    emailRowLayout->addWidget(pasteEmailBtn);
 
+    auto* passRowLayout = new QHBoxLayout();
+    passRowLayout->setSpacing(8);
     m_passwordEdit = new QLineEdit(accountGroup);
     m_passwordEdit->setPlaceholderText(tr("Password"));
     m_passwordEdit->setEchoMode(QLineEdit::Password);
+    auto* pastePassBtn = new QPushButton(tr("Paste"), accountGroup);
+    pastePassBtn->setFixedWidth(60);
+    connect(pastePassBtn, &QPushButton::clicked, this, [this]() {
+        QString text = WasmClipboardHelper::getBrowserClipboardText();
+        if (!text.isEmpty()) {
+            m_passwordEdit->setText(text);
+        }
+    });
+    passRowLayout->addWidget(m_passwordEdit);
+    passRowLayout->addWidget(pastePassBtn);
 
     m_authErrorLabel = new QLabel(accountGroup);
     m_authErrorLabel->setStyleSheet("color: #F87171; font-size: 12px;");
@@ -145,8 +169,8 @@ void CloudSyncDialog::initUi()
     btnLayout->addWidget(m_loginBtn);
     btnLayout->addWidget(m_registerBtn);
 
-    formLayout->addWidget(m_emailEdit);
-    formLayout->addWidget(m_passwordEdit);
+    formLayout->addLayout(emailRowLayout);
+    formLayout->addLayout(passRowLayout);
     formLayout->addWidget(m_authErrorLabel);
     formLayout->addLayout(btnLayout);
 
