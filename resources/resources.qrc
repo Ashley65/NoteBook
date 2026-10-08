@@ -68,6 +68,8 @@
         <file>icons/format_list_checkbox.svg</file>
         <file>icons/format_table.svg</file>
         <file>icons/format_quote.svg</file>
+        <file>icons/fullscreen.svg</file>
+        <file>icons/fullscreen_exit.svg</file>
         <file>sql/schema.sql</file>
     </qresource>
 </RCC>

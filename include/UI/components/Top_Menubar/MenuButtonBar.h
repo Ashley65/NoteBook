@@ -21,6 +21,7 @@ private:
 
 
 signals:
+    void cloudSyncRequested();
     void settingRequested();
     void aboutRequested();
     void exitRequested();

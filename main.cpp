@@ -6,6 +6,12 @@
 
 #include "UI/mainWIndow.h"
 
+#ifdef Q_OS_WASM
+#include "helpers/WasmStorageHelper.h"
+#include "helpers/WasmClipboardHelper.h"
+#include "Data/workspace/WorkspaceRepository.h"
+#endif
+
 
 
 static QString getGlobalThemeStyle() {
@@ -149,13 +155,21 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName("none");
     app.setApplicationName("flow");
     app.setStyleSheet(getGlobalThemeStyle());
+
     Q_INIT_RESOURCE(resources);
     qDebug() << "app=" << QCoreApplication::applicationFilePath();
     qDebug() << "rcc list :/icons=" << QDir(":/icons").entryList(QDir::Files);
 
+#ifdef Q_OS_WASM
+    WasmStorageHelper::initStorage(WorkspaceRepository::dataRootPath());
+    WasmClipboardHelper::initClipboard();
+#endif
+
     MainWindow window;
 
+#ifndef Q_OS_WASM
     window.setWindowFlags(Qt::Window | Qt::FramelessWindowHint);
+#endif
     window.show();
     return app.exec();
 }

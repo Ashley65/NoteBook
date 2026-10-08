@@ -24,6 +24,22 @@
 #include "Data/workspace/WorkspaceSettingsWindow.h"
 #include "Data/workspace/WorkspaceSwitchDialog.h"
 #include "Data/Project/ProjectCreateDialog.h"
+#include "Data/Cloud/PocketBaseClient.h"
+#include "Data/Cloud/SyncManager.h"
+#include "UI/components/Dialog/CloudSyncDialog.h"
+
+#ifdef Q_OS_WASM
+#include <emscripten.h>
+#include <emscripten/html5.h>
+
+static MainWindow* s_wasmMainWindowInstance = nullptr;
+
+extern "C" EMSCRIPTEN_KEEPALIVE void wasmBrowserGoBack() {
+    if (s_wasmMainWindowInstance) {
+        s_wasmMainWindowInstance->goBack();
+    }
+}
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
@@ -78,6 +94,8 @@ MainWindow::MainWindow(QWidget* parent)
     m_workspaceRepo = new WorkspaceRepository(this);
     m_stateController = new AppStateController(this);
     m_tabManager = new TabManager(this);
+    m_cloudClient = new PocketBaseClient(this);
+    m_syncManager = new SyncManager(m_workspaceRepo, m_cloudClient, this);
 
     // Ensure the stylesheet allows transparency
     setStyleSheet("QMainWindow { background: transparent; }");
@@ -122,6 +140,7 @@ MainWindow::MainWindow(QWidget* parent)
     topLayout->setColumnStretch(1, 1);
     topLayout->setColumnStretch(2, 0);
 
+#ifndef Q_OS_WASM
     // Vertical stretch: Two equal rows (TopLayer and ControlLayer)
     topLayout->setRowStretch(0, 1);
     topLayout->setRowStretch(1, 1);
@@ -167,14 +186,19 @@ MainWindow::MainWindow(QWidget* parent)
         }
     });
 #endif
+#else
+    topLayout->setRowStretch(0, 1);
+#endif
 
+#ifndef Q_OS_WASM
     // Window Actions Bar
     setupWindowActionsBar();
+#endif
 
     // Navigation Bar
     m_navigationBar = new NavigationBar(topBarFrame);
     m_navigationBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-    m_navigationBar->setMaximumWidth(100);
+    m_navigationBar->setMaximumWidth(110);
     setupNavigationBar();
 
     // Tab Bar
@@ -183,25 +207,57 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Menu Bar
     m_menuButtonBar = new MenuButtonBar(topBarFrame);
+    connect(m_menuButtonBar, &MenuButtonBar::cloudSyncRequested, this, [this]() {
+        auto* dlg = new CloudSyncDialog(m_cloudClient, m_syncManager, this);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->open();
+    });
 
     // --- WIDGET PLACEMENT ---
 
-    // ROW 0: The "TopLayer" (App Name & Window Controls)
-#ifdef Q_OS_MAC
+#ifdef Q_OS_WASM
+    m_fullscreenBtn = new QPushButton(topBarFrame);
+    m_fullscreenBtn->setToolTip(tr("Toggle Fullscreen"));
+    m_fullscreenBtn->setFlat(true);
+    m_fullscreenBtn->setFixedSize(28, 28);
+    m_fullscreenBtn->setIcon(QIcon(":/icons/fullscreen.svg"));
+    m_fullscreenBtn->setIconSize(QSize(16, 16));
+    m_fullscreenBtn->setStyleSheet(
+        "QPushButton { border: none; border-radius: 4px; background-color: transparent; }"
+        "QPushButton:hover { background-color: #2D3142; }"
+    );
+
+    auto* rightActionsWidget = new QWidget(topBarFrame);
+    auto* rightActionsLayout = new QHBoxLayout(rightActionsWidget);
+    rightActionsLayout->setContentsMargins(0, 0, 0, 0);
+    rightActionsLayout->setSpacing(6);
+    rightActionsLayout->addWidget(m_fullscreenBtn);
+    rightActionsLayout->addWidget(m_menuButtonBar);
+
+    // WebAssembly: Single compact row
+    topLayout->addWidget(m_navigationBar, 0, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
+    topLayout->addWidget(m_tabBar, 0, 1, 1, 1);
+    topLayout->addWidget(rightActionsWidget, 0, 2, 1, 1, Qt::AlignRight | Qt::AlignVCenter);
+
+    setupWasmNavigation();
+#elif defined(Q_OS_MAC)
     // macOS: Controls left, Info right
     topLayout->addWidget(m_windowActionsBar, 0, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
     topLayout->addWidget(infoContainer, 0, 1, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
     infoContainer->setAttribute(Qt::WA_TransparentForMouseEvents, false);
+
+    topLayout->addWidget(m_navigationBar, 1, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
+    topLayout->addWidget(m_tabBar, 1, 1, 1, 1);
+    topLayout->addWidget(m_menuButtonBar, 1, 2, 1, 1, Qt::AlignRight | Qt::AlignVCenter);
 #else
     // Windows/Linux: Info left, Controls right
     topLayout->addWidget(infoContainer, 0, 0, 1, 2, Qt::AlignLeft | Qt::AlignVCenter);
     topLayout->addWidget(m_windowActionsBar, 0, 2, 1, 1, Qt::AlignRight | Qt::AlignTop);
-#endif
 
-    // ROW 1: The "controlLayer" (Navigation & Tabs)
     topLayout->addWidget(m_navigationBar, 1, 0, 1, 1, Qt::AlignLeft | Qt::AlignVCenter);
     topLayout->addWidget(m_tabBar, 1, 1, 1, 1);
     topLayout->addWidget(m_menuButtonBar, 1, 2, 1, 1, Qt::AlignRight | Qt::AlignVCenter);
+#endif
 
     // ============================================================
     // 3. SIDE BAR (.Side_bar)
@@ -235,17 +291,20 @@ MainWindow::MainWindow(QWidget* parent)
     connect(m_tabManager, &TabManager::tabOpened, this, [this](const QString& viewType, const QUuid& contextId) {
         qDebug() << "Tab opened with viewType:" << viewType << "and contextId:" << contextId;
 
+#ifdef Q_OS_WASM
+        const QString hash = QString("#/%1/%2").arg(viewType, contextId.toString(QUuid::WithoutBraces));
+        EM_ASM({
+            var hashStr = UTF8ToString($0);
+            if (window.location.hash !== hashStr) {
+                window.history.pushState({ view: hashStr }, "", hashStr);
+            }
+        }, hash.toUtf8().constData());
+#endif
+
         if (viewType == "Home" || viewType == "Dashboard") {
             Workspace ws = m_workspaceRepo->getWorkspaceById(contextId);
             if (ws.id.isNull()) {
-                QUuid activeWsId = m_stateController->context().activeWorkspaceId;
-                if (activeWsId.isNull()) {
-                    const auto workspaces = m_workspaceRepo->workspaces();
-                    if (!workspaces.isEmpty()) {
-                        activeWsId = workspaces.first().id;
-                    }
-                }
-                ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+                ws = currentValidWorkspace();
             }
             if (!ws.id.isNull()) {
                 m_mainContent->setActiveWorkspace(ws);
@@ -338,37 +397,31 @@ MainWindow::MainWindow(QWidget* parent)
     // connect(m_mainContent, &MainContentView::viewTitleChanged, m_tabManager, &TabManager::updateTabTitle);
 
     // --- 5B. Database Check / Seed Defaults ---
+    m_workspaceRepo->seedDefaultWorkspaceIfEmpty();
     auto workspaces = m_workspaceRepo->workspaces();
-    if (workspaces.isEmpty()) {
-        m_workspaceRepo->createWorkspace("Personal Workspace");
-        workspaces = m_workspaceRepo->workspaces();
-    }
 
-    bool hasTestWorkspace = false;
-    for (const Workspace& existingWorkspace : workspaces) {
-        if (existingWorkspace.name == "Test Workspace") {
-            hasTestWorkspace = true;
-            break;
+    // Clean up any legacy "Test Workspace" from earlier debug scaffolding
+    bool cleanedLegacyTestWs = false;
+    for (int i = workspaces.size() - 1; i >= 0; --i) {
+        if (workspaces[i].name == "Test Workspace" && workspaces[i].type == "lab") {
+            m_workspaceRepo->deleteWorkspace(workspaces[i].id);
+            cleanedLegacyTestWs = true;
         }
     }
-    if (!hasTestWorkspace) {
-        m_workspaceRepo->createWorkspace("Test Workspace", "lab", "This is a test workspace.");
-        workspaces = m_workspaceRepo->workspaces(); // Refresh list
+    if (cleanedLegacyTestWs) {
+        m_workspaceRepo->seedDefaultWorkspaceIfEmpty();
+        workspaces = m_workspaceRepo->workspaces();
     }
 
     // --- 5C. Add Initial Tab From State ---
     if (!workspaces.isEmpty()) {
-        QUuid launchWorkspaceId = m_stateController->context().activeWorkspaceId;
-
-        // 1. Fallback to first workspace if state is empty
-        if (launchWorkspaceId.isNull()) {
-            launchWorkspaceId = workspaces.first().id;
+        Workspace launchWs = currentValidWorkspace();
+        if (launchWs.id.isNull()) {
+            launchWs = workspaces.first();
+            m_stateController->setActiveWorkspace(launchWs.id, launchWs.name);
         }
 
-        // 2. Fetch project ID AFTER ensuring the workspace ID is valid
-        QUuid launchProjectId = m_stateController->lastProjectForWorkspace(launchWorkspaceId);
-
-        const Workspace launchWs = m_workspaceRepo->getWorkspaceById(launchWorkspaceId);
+        const QUuid launchProjectId = m_stateController->lastProjectForWorkspace(launchWs.id);
 
         if (!launchProjectId.isNull()) {
             // Restore last open project
@@ -376,15 +429,26 @@ MainWindow::MainWindow(QWidget* parent)
             if (!p.id.isNull()) {
                 QString tabTitle = QString("%1 / %2").arg(launchWs.name, p.name);
                 m_tabManager->addTab(tabTitle, "Project", p.id, "#81C784");
-                m_tabManager->setActiveTabId(p.id); // Explicitly tell the manager this is the active tab
+                m_tabManager->setActiveTabId(p.id);
             } else {
                 m_tabManager->addTab(launchWs.name, "Home", launchWs.id, "#3B82F6");
-                m_tabManager->setActiveTabId(launchWs.id); // Explicitly mark as active
+                m_tabManager->setActiveTabId(launchWs.id);
             }
         } else {
             // Restore home view
             m_tabManager->addTab(launchWs.name, "Home", launchWs.id, "#3B82F6");
-            m_tabManager->setActiveTabId(launchWs.id); // Explicitly mark as active
+            m_tabManager->setActiveTabId(launchWs.id);
+        }
+
+        // Guarantee MainContentView and SideBar are actively populated immediately
+        m_mainContent->setActiveWorkspace(launchWs);
+        if (m_sideBar) {
+            m_sideBar->setWorkspaceId(launchWs.id);
+            m_sideBar->setWorkspaceName(launchWs.name);
+            m_sideBar->setActiveProjectId(launchProjectId);
+            m_sideBar->setActiveCoreItem(launchProjectId.isNull()
+                ? nu_CoreNavigationSection::Item::Dashboard
+                : nu_CoreNavigationSection::Item::Projects);
         }
     }
 
@@ -476,6 +540,7 @@ QFrame* MainWindow::createWidget(const QString& title, const QString& color,
 
 void MainWindow::setupWindowActionsBar()
 {
+#ifndef Q_OS_WASM
     m_windowActionsBar = new WindowsActionsBar(this);
     m_windowActionsBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Preferred);
     m_windowActionsBar->setMaximumWidth(220); // keep the bar compact
@@ -512,7 +577,67 @@ void MainWindow::setupWindowActionsBar()
     connect(m_windowActionsBar, &WindowsActionsBar::closeRequested, this, [this]() {
         this->close();
     });
+#endif
 }
+
+#ifdef Q_OS_WASM
+void MainWindow::setupWasmNavigation()
+{
+    s_wasmMainWindowInstance = this;
+
+    // 1. In browser mode, hide in-app navigation bar by default
+    if (m_navigationBar) {
+        m_navigationBar->setVisible(false);
+    }
+
+    // 2. Fullscreen toggle button triggers browser fullscreen
+    if (m_fullscreenBtn) {
+        connect(m_fullscreenBtn, &QPushButton::clicked, this, []() {
+            EM_ASM({
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(function(e) {});
+                } else {
+                    document.exitFullscreen().catch(function(e) {});
+                }
+            });
+        });
+    }
+
+    // 3. Listen for browser fullscreenchange events
+    emscripten_set_fullscreenchange_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, this, true,
+        [](int eventType, const EmscriptenFullscreenChangeEvent *e, void *userData) -> EM_BOOL {
+            auto* win = static_cast<MainWindow*>(userData);
+            if (win) {
+                if (win->m_navigationBar) {
+                    // When in fullscreen, show the in-app navigation bar; when normal, hide it
+                    win->m_navigationBar->setVisible(e->isFullscreen);
+                }
+                if (win->m_fullscreenBtn) {
+                    if (e->isFullscreen) {
+                        win->m_fullscreenBtn->setIcon(QIcon(":/icons/fullscreen_exit.svg"));
+                        win->m_fullscreenBtn->setToolTip(tr("Exit Fullscreen"));
+                    } else {
+                        win->m_fullscreenBtn->setIcon(QIcon(":/icons/fullscreen.svg"));
+                        win->m_fullscreenBtn->setToolTip(tr("Toggle Fullscreen"));
+                    }
+                }
+            }
+            return EM_TRUE;
+        });
+
+    // 4. Register popstate listener so browser back/forward buttons work
+    EM_ASM({
+        if (!window.__taskhelper_popstate_installed) {
+            window.__taskhelper_popstate_installed = true;
+            window.addEventListener('popstate', function() {
+                if (typeof Module !== 'undefined' && Module._wasmBrowserGoBack) {
+                    Module._wasmBrowserGoBack();
+                }
+            });
+        }
+    });
+}
+#endif
 
 void MainWindow::setupInfoBar()
 {
@@ -564,11 +689,11 @@ void MainWindow::refreshSidebar()
 {
     if (!m_sideBar || !m_stateController || !m_workspaceRepo) return;
 
-    const QUuid workspaceId = m_stateController->context().activeWorkspaceId;
+    const Workspace ws = currentValidWorkspace();
     QVariantList projectItems;
 
-    if (!workspaceId.isNull()) {
-        const QList<Project> projects = m_workspaceRepo->getProjectsByWorkspace(workspaceId);
+    if (!ws.id.isNull()) {
+        const QList<Project> projects = m_workspaceRepo->getProjectsByWorkspace(ws.id);
         static const QStringList palette = {
             "#FFD700", "#9ACD32", "#20B2AA", "#FF69B4", "#64B5F6", "#BA68C8", "#FF8A65", "#81C784"
         };
@@ -587,6 +712,28 @@ void MainWindow::refreshSidebar()
     }
 
     m_sideBar->setProjects(projectItems);
+}
+
+Workspace MainWindow::currentValidWorkspace() const
+{
+    if (!m_workspaceRepo) return {};
+
+    QUuid activeWsId = m_stateController ? m_stateController->context().activeWorkspaceId : QUuid();
+    Workspace ws;
+    if (!activeWsId.isNull()) {
+        ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+    }
+
+    if (ws.id.isNull()) {
+        const auto workspaces = m_workspaceRepo->workspaces();
+        if (!workspaces.isEmpty()) {
+            ws = workspaces.first();
+            if (m_stateController) {
+                m_stateController->setActiveWorkspace(ws.id, ws.name);
+            }
+        }
+    }
+    return ws;
 }
 
 void MainWindow::updateFloatingToggleButtonVisibility()
@@ -683,17 +830,16 @@ void MainWindow::setupSidebarConnections()
             }
         }
 
-        if (ctx.activeWorkspaceId.isNull()) {
-            return;
+        Workspace ws = m_workspaceRepo->getWorkspaceById(ctx.activeWorkspaceId);
+        if (ws.id.isNull()) {
+            ws = currentValidWorkspace();
         }
-
-        const Workspace ws = m_workspaceRepo->getWorkspaceById(ctx.activeWorkspaceId);
         if (!ws.id.isNull()) {
             // Activate the workspace view
             m_mainContent->setActiveWorkspace(ws);
 
             // If there's a remembered last project for this workspace, show it
-            const QUuid lastProj = m_stateController->lastProjectForWorkspace(ctx.activeWorkspaceId);
+            const QUuid lastProj = m_stateController->lastProjectForWorkspace(ws.id);
             if (!lastProj.isNull()) {
                 const Project p = m_workspaceRepo->getProjectById(lastProj);
                 if (!p.id.isNull()) {
@@ -703,8 +849,6 @@ void MainWindow::setupSidebarConnections()
 
             return;
         }
-
-        // Fallback for stale ids that may exist in persisted AppStateController settings.
     });
 
     connect(m_stateController, &AppStateController::activeWorkspaceChanged,
@@ -774,10 +918,11 @@ void MainWindow::setupSidebarConnections()
     });
 
     connect(m_sideBar, &SideBar::projectCreateRequested, this, [this]() {
-        const QUuid activeWorkspaceId = m_stateController->context().activeWorkspaceId;
-        if (activeWorkspaceId.isNull()) {
+        const Workspace ws = currentValidWorkspace();
+        if (ws.id.isNull()) {
             return;
         }
+        const QUuid activeWorkspaceId = ws.id;
 
         auto* dlg = new ProjectCreateDialog(activeWorkspaceId, this, m_workspaceRepo);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -822,31 +967,17 @@ void MainWindow::setupSidebarConnections()
             m_mainContent->setBorderColor(color);
         }
         if (item == nu_CoreNavigationSection::Item::Dashboard && m_tabManager) {
-            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
-            if (activeWsId.isNull()) {
-                const auto workspaces = m_workspaceRepo->workspaces();
-                if (!workspaces.isEmpty()) {
-                    activeWsId = workspaces.first().id;
-                }
-            }
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            const Workspace ws = currentValidWorkspace();
             if (!ws.id.isNull()) {
                 m_sideBar->setActiveProjectId(QUuid());
                 m_tabManager->navigateActiveTab(ws.name, "Home", ws.id, "#3B82F6");
             }
         } else if (item == nu_CoreNavigationSection::Item::Projects && m_tabManager) {
-            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
-            if (activeWsId.isNull()) {
-                const auto workspaces = m_workspaceRepo->workspaces();
-                if (!workspaces.isEmpty()) {
-                    activeWsId = workspaces.first().id;
-                }
-            }
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            const Workspace ws = currentValidWorkspace();
             if (!ws.id.isNull()) {
                 QUuid activeProjId = m_sideBar ? m_sideBar->activeProjectId() : QUuid();
                 if (activeProjId.isNull()) {
-                    activeProjId = m_stateController->lastProjectForWorkspace(activeWsId);
+                    activeProjId = m_stateController->lastProjectForWorkspace(ws.id);
                 }
 
                 Project proj;
@@ -887,18 +1018,11 @@ void MainWindow::setupSidebarConnections()
                 }
             }
         } else if (item == nu_CoreNavigationSection::Item::TaskBoard && m_tabManager) {
-            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
-            if (activeWsId.isNull()) {
-                const auto workspaces = m_workspaceRepo->workspaces();
-                if (!workspaces.isEmpty()) {
-                    activeWsId = workspaces.first().id;
-                }
-            }
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            const Workspace ws = currentValidWorkspace();
             if (!ws.id.isNull()) {
                 QUuid activeProjId = m_sideBar ? m_sideBar->activeProjectId() : QUuid();
                 if (activeProjId.isNull()) {
-                    activeProjId = m_stateController->lastProjectForWorkspace(activeWsId);
+                    activeProjId = m_stateController->lastProjectForWorkspace(ws.id);
                 }
 
                 Project proj;
@@ -919,18 +1043,11 @@ void MainWindow::setupSidebarConnections()
             }
         } else if (item == nu_CoreNavigationSection::Item::Notes && m_tabManager)
         {
-            QUuid activeWsId = m_stateController->context().activeWorkspaceId;
-            if (activeWsId.isNull()) {
-                const auto workspaces = m_workspaceRepo->workspaces();
-                if (!workspaces.isEmpty()) {
-                    activeWsId = workspaces.first().id;
-                }
-            }
-            const Workspace ws = m_workspaceRepo->getWorkspaceById(activeWsId);
+            const Workspace ws = currentValidWorkspace();
             if (!ws.id.isNull()) {
                 QUuid activeProjId = m_sideBar ? m_sideBar->activeProjectId() : QUuid();
                 if (activeProjId.isNull()) {
-                    activeProjId = m_stateController->lastProjectForWorkspace(activeWsId);
+                    activeProjId = m_stateController->lastProjectForWorkspace(ws.id);
                 }
 
                 Project proj;

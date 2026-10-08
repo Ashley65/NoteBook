@@ -96,7 +96,12 @@ set (SOURCE_FILES
         src/UI/componets/Content_Windows/Page/wsNoteListPage.cpp
         src/UI/componets/Content_Windows/Page/wsProjectPage.cpp
         src/helpers/NoteAttachmentRenderer.cpp
-        src/Data/Database/DatabaseManager.cpp)
+        src/Data/Database/DatabaseManager.cpp
+        src/helpers/WasmStorageHelper.cpp
+        src/helpers/WasmClipboardHelper.cpp
+        src/Data/Cloud/PocketBaseClient.cpp
+        src/Data/Cloud/SyncManager.cpp
+        src/UI/componets/Dialog/CloudSyncDialog.cpp)
 
 set (RESOURCE_FILES
         resources/resources.qrc)
@@ -156,7 +161,12 @@ set (HEADER_FILES
         include/UI/components/Content_Windows/page/wsTaskBoardPage.h
         include/Data/Database/DatabaseManager.h
         include/Data/Database/DataSchema.h
-        include/helpers/NoteAttachmentRenderer.h)
+        include/helpers/NoteAttachmentRenderer.h
+        include/helpers/WasmStorageHelper.h
+        include/helpers/WasmClipboardHelper.h
+        include/Data/Cloud/PocketBaseClient.h
+        include/Data/Cloud/SyncManager.h
+        include/UI/components/Dialog/CloudSyncDialog.h)
 
 qt_add_executable(Flow ${SOURCE_FILES} ${HEADER_FILES} ${RESOURCE_FILES})
 
@@ -240,6 +250,7 @@ endif ()
 # ============================================================================
 # Unit Tests
 # ============================================================================
+if (NOT EMSCRIPTEN)
 enable_testing()
 
 # 1. DatabaseManager Test
@@ -345,3 +356,4 @@ add_test(NAME NoteManagerTest COMMAND noteManagerTest)
 #        PROPERTY ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:C:/Qt/6.11.0/msvc2022_64/bin"
 #    )
 #endif()
+endif() # NOT EMSCRIPTEN

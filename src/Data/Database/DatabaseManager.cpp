@@ -44,7 +44,11 @@ bool DatabaseManager::open(const QString& dbPath)
     // Enable Pragmas
     QSqlQuery pragmaQuery(d);
     pragmaQuery.exec("PRAGMA foreign_keys = ON;");
+#ifdef Q_OS_WASM
+    pragmaQuery.exec("PRAGMA journal_mode = MEMORY;");
+#else
     pragmaQuery.exec("PRAGMA journal_mode = WAL;");
+#endif
     pragmaQuery.exec("PRAGMA synchronous = NORMAL;");
 
     return initializeSchema();

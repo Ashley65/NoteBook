@@ -76,14 +76,19 @@ void MenuButtonBar::initUi()
         "}"
     );
 
-    auto *settingsAct = menu->addAction("Settings");
-    auto *aboutAct    = menu->addAction("About");
-    menu->addSeparator();
-    auto *exitAct     = menu->addAction("Exit");
+    auto *cloudSyncAct = menu->addAction("Cloud & Sync");
+    auto *settingsAct  = menu->addAction("Settings");
+    auto *aboutAct     = menu->addAction("About");
 
-    connect(settingsAct, &QAction::triggered, this, &MenuButtonBar::settingRequested);
-    connect(aboutAct,    &QAction::triggered, this, &MenuButtonBar::aboutRequested);
-    connect(exitAct,     &QAction::triggered, this, &MenuButtonBar::exitRequested);
+    connect(cloudSyncAct, &QAction::triggered, this, &MenuButtonBar::cloudSyncRequested);
+    connect(settingsAct,  &QAction::triggered, this, &MenuButtonBar::settingRequested);
+    connect(aboutAct,     &QAction::triggered, this, &MenuButtonBar::aboutRequested);
+
+#ifndef Q_OS_WASM
+    menu->addSeparator();
+    auto *exitAct      = menu->addAction("Exit");
+    connect(exitAct,      &QAction::triggered, this, &MenuButtonBar::exitRequested);
+#endif
 
     m_menuBtn->setMenu(menu);
 }

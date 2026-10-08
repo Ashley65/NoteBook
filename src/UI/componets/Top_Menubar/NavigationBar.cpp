@@ -111,9 +111,13 @@ void NavigationBar::initUi()
     m_forwardBtn->setEnabled(false);
     m_layout->addWidget(m_forwardBtn);
 
-    QLabel *sep = new QLabel("|", this);
-    sep->setFixedSize(4, buttonSize);
-    m_layout->addWidget(sep);
+    auto *sep = new QFrame(this);
+    sep->setFrameShape(QFrame::VLine);
+    sep->setFrameShadow(QFrame::Plain);
+    sep->setFixedWidth(1);
+    sep->setFixedHeight(16);
+    sep->setStyleSheet("background-color: rgba(255, 255, 255, 0.18); border: none;");
+    m_layout->addWidget(sep, 0, Qt::AlignVCenter);
 
     // Refresh button
     m_refreshBtn = new QPushButton(this);
@@ -145,15 +149,10 @@ void NavigationBar::initUi()
         "QPushButton:disabled {"
         "  background: transparent;"
         "}";
-    const QString sepCSS =
-        "QLabel{"
-        "  color: #888;"
-        "}";
 
     m_backBtn->setStyleSheet(css);
     m_forwardBtn->setStyleSheet(css);
     m_refreshBtn->setStyleSheet(css);
-    sep->setStyleSheet(sepCSS);
 
     // Direct Signal Connections
     connect(m_backBtn, &QPushButton::clicked, this, &NavigationBar::backClicked);

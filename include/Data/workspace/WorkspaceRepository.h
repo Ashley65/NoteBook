@@ -67,6 +67,8 @@ public:
      */
     ~WorkspaceRepository() override;
 
+    [[nodiscard]] static QString dataRootPath();
+
     // =========================================================================
     // Workspace Management
     // =========================================================================
@@ -91,6 +93,12 @@ public:
      * @return Unique identifier of the newly created workspace.
      */
     QUuid createWorkspace(const QString& name, const QString& type = "custom", const QString& description = "");
+
+    /**
+     * @brief Seeds a default "Personal Workspace" with starter project, tasks, and welcome note if empty.
+     * @return Unique identifier of the seeded or existing primary workspace.
+     */
+    QUuid seedDefaultWorkspaceIfEmpty();
 
     /**
      * @brief Updates workspace metadata and notifies subscribers.
@@ -345,7 +353,6 @@ private:
 
     static QString uuidKey(const QUuid& id) { return id.toString(QUuid::WithoutBraces); }
 
-    [[nodiscard]] static QString dataRootPath();
     [[nodiscard]] QString settingsFilePath() const;
 
     [[nodiscard]] QString projectPath(const QUuid& workspaceId, const QUuid& projectId) const;

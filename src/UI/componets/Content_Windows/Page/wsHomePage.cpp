@@ -483,12 +483,19 @@ void wsHomePage::setupUi()
     m_homeQuickView->setMinimumHeight(300);
 
     m_homeQuickView->rootContext()->setContextProperty("wsHomePage", this);
+    connect(m_homeQuickView, &QQuickWidget::statusChanged, this, [this](QQuickWidget::Status status) {
+        if (status == QQuickWidget::Error) {
+            for (const auto& err : m_homeQuickView->errors()) {
+                qWarning() << "[wsHomePage QML Error]" << err.toString();
+            }
+        }
+    });
     m_homeQuickView->setSource(QUrl("qrc:/qml/wsHomeLinker.qml"));
 
     if (m_homeQuickView->status() == QQuickWidget::Error) {
         const auto errs = m_homeQuickView->errors();
         for (const auto& err : errs) {
-            qWarning() << err.toString();
+            qWarning() << "[wsHomePage QML Error]" << err.toString();
         }
     }
 

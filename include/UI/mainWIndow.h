@@ -32,6 +32,9 @@
 #include "Data/workspace/Manager/TabManager.h"
 #include "components/Content_Windows/MainContentView.h"
 
+class PocketBaseClient;
+class SyncManager;
+
 class MainWindow : public QWidget
 {
     Q_OBJECT
@@ -49,6 +52,8 @@ private:
     AppStateController* m_stateController {nullptr};
     WorkspaceRepository* m_workspaceRepo {nullptr};
     MainContentView* m_mainContent {nullptr};
+    PocketBaseClient* m_cloudClient {nullptr};
+    SyncManager* m_syncManager {nullptr};
 
     static QFrame* createWidget(const QString& title,
                                 const QString& color,
@@ -56,6 +61,10 @@ private:
                                 bool withBorder = true,
                                 bool transparent = false);
     WindowsActionsBar* m_windowActionsBar {nullptr};
+#ifdef Q_OS_WASM
+    QPushButton* m_fullscreenBtn {nullptr};
+    void setupWasmNavigation();
+#endif
     NavigationBar* m_navigationBar {nullptr};
     InfoBar* m_infoBar {nullptr};
     MenuButtonBar* m_menuButtonBar {nullptr};
@@ -72,6 +81,7 @@ private:
     void setupSideBar();
     void setupSidebarConnections();
     void refreshSidebar();
+    [[nodiscard]] Workspace currentValidWorkspace() const;
 
     void updateWindowTheme();
     [[nodiscard]] bool isDarkModeEnabled() const;

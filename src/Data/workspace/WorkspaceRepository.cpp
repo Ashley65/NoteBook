@@ -13,8 +13,15 @@
 #include <QJsonObject>
 #include <QRegularExpression>
 
+#ifdef Q_OS_WASM
+#include "helpers/WasmStorageHelper.h"
+#endif
+
 WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
 {
+#ifdef Q_OS_WASM
+    WasmStorageHelper::initStorage(dataRootPath());
+#endif
     m_dbManager = std::make_unique<DatabaseManager>("taskhelper_main_repo");
     const QString dbPath = QDir(dataRootPath()).filePath("taskhelper.db");
     if (!m_dbManager->open(dbPath)) {
@@ -29,6 +36,7 @@ WorkspaceRepository::WorkspaceRepository(QObject* parent) : QObject(parent)
     loadNotes();
     loadAttachments();
     ensureProjectStructure();
+    seedDefaultWorkspaceIfEmpty();
 }
 
 WorkspaceRepository::~WorkspaceRepository() = default;
@@ -64,6 +72,193 @@ QUuid WorkspaceRepository::createWorkspace(const QString& name, const QString& t
 
     emit workspaceAdded(ws);
     return ws.id;
+}
+
+QUuid WorkspaceRepository::seedDefaultWorkspaceIfEmpty() {
+    // If workspaces exist and already have tasks or notes, keep existing state
+    if (!workspaces_.isEmpty()) {
+        if (!tasks_.isEmpty() || !notes_.isEmpty()) {
+            return workspaces_.first().id;
+        }
+
+        // Workspace exists but is empty (e.g. from early scaffolding)
+        const Workspace ws = workspaces_.first();
+        QUuid projId;
+        for (const auto& p : projects_) {
+            if (p.workspaceId == ws.id) {
+                projId = p.id;
+                break;
+            }
+        }
+        if (projId.isNull()) {
+            Project proj;
+            proj.workspaceId = ws.id;
+            proj.name = "Getting Started";
+            proj.description = "Essential setup and tips for getting the most out of Flow.";
+            projId = createProject(proj);
+        }
+
+        if (tasks_.isEmpty()) {
+            Task task1;
+            task1.workspaceId = ws.id;
+            task1.projectId = projId;
+            task1.title = "Explore the Dashboard & Views";
+            task1.description = "Familiarize yourself with workspace navigation, task boards, and note editor.";
+            task1.status = TaskStatus::InProgress;
+            task1.priority = TaskPriority::High;
+            task1.dueDate = QDateTime::currentDateTime().addDays(2);
+
+            SubTask st1_1;
+            st1_1.id = QUuid::createUuid();
+            st1_1.title = "Navigate using the top bar or sidebar";
+            st1_1.isCompleted = true;
+            task1.subtasks.append(st1_1);
+
+            SubTask st1_2;
+            st1_2.id = QUuid::createUuid();
+            st1_2.title = "Switch between Tasks, Notes, and Dashboard";
+            st1_2.isCompleted = true;
+            task1.subtasks.append(st1_2);
+
+            SubTask st1_3;
+            st1_3.id = QUuid::createUuid();
+            st1_3.title = "Toggle full-screen mode";
+            st1_3.isCompleted = false;
+            task1.subtasks.append(st1_3);
+
+            createTask(task1);
+
+            Task task2;
+            task2.workspaceId = ws.id;
+            task2.projectId = projId;
+            task2.title = "Configure Cloud Sync & Backup";
+            task2.description = "Connect Flow to your PocketBase server or custom backend to keep your data synced across devices.";
+            task2.status = TaskStatus::Pending;
+            task2.priority = TaskPriority::Medium;
+            task2.dueDate = QDateTime::currentDateTime().addDays(5);
+            createTask(task2);
+
+            Task task3;
+            task3.workspaceId = ws.id;
+            task3.projectId = projId;
+            task3.title = "Create your first custom workspace";
+            task3.description = "Organize projects, tasks, and notes by topic, team, or personal goals.";
+            task3.status = TaskStatus::Pending;
+            task3.priority = TaskPriority::Low;
+            createTask(task3);
+        }
+
+        if (notes_.isEmpty()) {
+            Note note;
+            note.workspaceId = ws.id;
+            note.projectId = projId;
+            note.title = "Welcome to Flow \U0001F44B";
+            note.preview = "Welcome to Flow! Your modern, cross-platform productivity hub for tasks and notes...";
+            note.content = QStringLiteral(
+                "# Welcome to Flow \U0001F44B\n\n"
+                "Flow is your modern, cross-platform workspace for managing tasks, projects, and markdown notes seamlessly.\n\n"
+                "---\n\n"
+                "### \u2728 Key Features\n"
+                "- **Workspaces & Projects**: Structure your life and work into organized spaces.\n"
+                "- **Task Management**: Track tasks with priorities, subtasks, due dates, and statuses.\n"
+                "- **Markdown Notes**: Rich markdown notes saved cleanly and synchronized in real-time.\n"
+                "- **Cross-Platform & Web**: Runs natively on Desktop and in your browser via WebAssembly.\n"
+                "- **Cloud Sync**: Securely sync with your self-hosted PocketBase server or custom backend.\n\n"
+                "### \U0001F680 Getting Started\n"
+                "1. Use the navigation bar at the top or the sidebar on the left to switch views.\n"
+                "2. Toggle full-screen mode anytime using the full-screen button in the top right.\n"
+                "3. Open **Cloud & Sync** from the user menu to connect your remote database.\n\n"
+                "Enjoy your flow!\n"
+            );
+            note.isPinned = true;
+            createNote(note);
+        }
+
+        return ws.id;
+    }
+
+    // Completely empty repository: create default workspace and seed everything
+    const QUuid wsId = createWorkspace("Personal Workspace", "personal", "Your default personal productivity workspace.");
+
+    Project proj;
+    proj.workspaceId = wsId;
+    proj.name = "Getting Started";
+    proj.description = "Essential setup and tips for getting the most out of Flow.";
+    const QUuid projId = createProject(proj);
+
+    Task task1;
+    task1.workspaceId = wsId;
+    task1.projectId = projId;
+    task1.title = "Explore the Dashboard & Views";
+    task1.description = "Familiarize yourself with workspace navigation, task boards, and note editor.";
+    task1.status = TaskStatus::InProgress;
+    task1.priority = TaskPriority::High;
+    task1.dueDate = QDateTime::currentDateTime().addDays(2);
+
+    SubTask st1_1;
+    st1_1.id = QUuid::createUuid();
+    st1_1.title = "Navigate using the top bar or sidebar";
+    st1_1.isCompleted = true;
+    task1.subtasks.append(st1_1);
+
+    SubTask st1_2;
+    st1_2.id = QUuid::createUuid();
+    st1_2.title = "Switch between Tasks, Notes, and Dashboard";
+    st1_2.isCompleted = true;
+    task1.subtasks.append(st1_2);
+
+    SubTask st1_3;
+    st1_3.id = QUuid::createUuid();
+    st1_3.title = "Toggle full-screen mode";
+    st1_3.isCompleted = false;
+    task1.subtasks.append(st1_3);
+
+    createTask(task1);
+
+    Task task2;
+    task2.workspaceId = wsId;
+    task2.projectId = projId;
+    task2.title = "Configure Cloud Sync & Backup";
+    task2.description = "Connect Flow to your PocketBase server or custom backend to keep your data synced across devices.";
+    task2.status = TaskStatus::Pending;
+    task2.priority = TaskPriority::Medium;
+    task2.dueDate = QDateTime::currentDateTime().addDays(5);
+    createTask(task2);
+
+    Task task3;
+    task3.workspaceId = wsId;
+    task3.projectId = projId;
+    task3.title = "Create your first custom workspace";
+    task3.description = "Organize projects, tasks, and notes by topic, team, or personal goals.";
+    task3.status = TaskStatus::Pending;
+    task3.priority = TaskPriority::Low;
+    createTask(task3);
+
+    Note note;
+    note.workspaceId = wsId;
+    note.projectId = projId;
+    note.title = "Welcome to Flow \U0001F44B";
+    note.preview = "Welcome to Flow! Your modern, cross-platform productivity hub for tasks and notes...";
+    note.content = QStringLiteral(
+        "# Welcome to Flow \U0001F44B\n\n"
+        "Flow is your modern, cross-platform workspace for managing tasks, projects, and markdown notes seamlessly.\n\n"
+        "---\n\n"
+        "### \u2728 Key Features\n"
+        "- **Workspaces & Projects**: Structure your life and work into organized spaces.\n"
+        "- **Task Management**: Track tasks with priorities, subtasks, due dates, and statuses.\n"
+        "- **Markdown Notes**: Rich markdown notes saved cleanly and synchronized in real-time.\n"
+        "- **Cross-Platform & Web**: Runs natively on Desktop and in your browser via WebAssembly.\n"
+        "- **Cloud Sync**: Securely sync with your self-hosted PocketBase server or custom backend.\n\n"
+        "### \U0001F680 Getting Started\n"
+        "1. Use the navigation bar at the top or the sidebar on the left to switch views.\n"
+        "2. Toggle full-screen mode anytime using the full-screen button in the top right.\n"
+        "3. Open **Cloud & Sync** from the user menu to connect your remote database.\n\n"
+        "Enjoy your flow!\n"
+    );
+    note.isPinned = true;
+    createNote(note);
+
+    return wsId;
 }
 
 void WorkspaceRepository::updateWorkspace(const Workspace& ws) {
@@ -445,6 +640,11 @@ QUuid WorkspaceRepository::createTask(const Task& task) {
         newTask.completedAt = QDateTime::currentDateTime();
     }
 
+    for (auto& st : newTask.subtasks) {
+        if (st.id.isNull()) st.id = QUuid::createUuid();
+        st.taskId = newTask.id;
+    }
+
     tasks_.append(newTask);
 
     // LINK: Persist changes immediately
@@ -679,6 +879,9 @@ void WorkspaceRepository::saveWorkspaces()
         }
     }
     m_dbManager->commitTransaction();
+#ifdef Q_OS_WASM
+    WasmStorageHelper::syncToBrowser();
+#endif
 }
 
 void WorkspaceRepository::loadWorkspaces()
@@ -700,6 +903,9 @@ void WorkspaceRepository::saveProjects()
         }
     }
     m_dbManager->commitTransaction();
+#ifdef Q_OS_WASM
+    WasmStorageHelper::syncToBrowser();
+#endif
 }
 
 void WorkspaceRepository::loadProjects()
@@ -724,6 +930,9 @@ void WorkspaceRepository::saveTasks()
         }
     }
     m_dbManager->commitTransaction();
+#ifdef Q_OS_WASM
+    WasmStorageHelper::syncToBrowser();
+#endif
 }
 
 void WorkspaceRepository::loadTasks()
@@ -748,6 +957,9 @@ void WorkspaceRepository::saveNotes()
         }
     }
     m_dbManager->commitTransaction();
+#ifdef Q_OS_WASM
+    WasmStorageHelper::syncToBrowser();
+#endif
 }
 
 void WorkspaceRepository::loadNotes()
@@ -786,6 +998,9 @@ void WorkspaceRepository::saveAttachments()
         }
     }
     m_dbManager->commitTransaction();
+#ifdef Q_OS_WASM
+    WasmStorageHelper::syncToBrowser();
+#endif
 }
 
 void WorkspaceRepository::loadAttachments()
